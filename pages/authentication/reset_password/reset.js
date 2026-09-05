@@ -75,8 +75,6 @@ if (resetForm) {
         }
 
         try {
-            
-
             // Connect to NodeJS Backend Endpoint
             const response = await fetch('http://localhost:3000/api/forgot-password', {
                 method: 'POST',
@@ -87,7 +85,14 @@ if (resetForm) {
             const data = await response.json();
 
             if (response.ok) {
-                showAlert('Reset link sent! Check your email inbox.');
+                showAlert('Email verified! Redirecting to change password...');
+                
+                // Redirect to the Change Password page after 2 seconds
+                setTimeout(() => {
+                    // Note: Change 'change-password.html' to whatever you named your second HTML file!
+                    window.location.href = 'change_password.html';
+                }, 2000);
+                
             } else {
                 showAlert(data.message || 'Failed to send reset link.');
             }
@@ -98,6 +103,7 @@ if (resetForm) {
         }
     });
 }
+
 
 // ==========================================
 // 4. Handle "Change Password" Form (New Password)
