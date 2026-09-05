@@ -174,3 +174,13 @@ p a:hover {
     transform: translateY(-50%);
     color: var(--aqua);
 }
+
+p.forgot-password{
+    text-align: right;
+    margin-top: 0.3rem;
+    font-size: 0.8rem;
+}
+
+p.forgot-password a{
+    font-weight: 500;
+}
