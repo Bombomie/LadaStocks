@@ -16,6 +16,18 @@ body {
     animation: fadeInBody 1.5s ease 0.3s forwards;
 }
 
+header {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+}
+
+header a img {
+  width: 50px;
+  height: auto;
+  margin: 0;
+}
+
 .login-form {
     background-color: var(--background-color);
     padding: 2.5rem;
