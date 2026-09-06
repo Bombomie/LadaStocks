@@ -7,7 +7,6 @@
 }
 
 body {
-    background-color: var(--gold);
     font-family: var(--font-family);
     display: flex;
     justify-content: center;
