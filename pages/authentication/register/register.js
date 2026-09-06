@@ -1,3 +1,4 @@
+document.getElementById('birthDate').value = ''; //to clear the birthDate field on page load
 const registerForm = document.getElementById('registerForm');
 
 // Custom alert function (same as login.js)
@@ -32,14 +33,15 @@ function showAlert(message) {
 registerForm.addEventListener('submit', async function(event) {
     event.preventDefault();
 
-    // 1. Get the values from the form
+    // 1. Get the values from the form (Added birthDate)
     const username = document.getElementById('username').value.trim();
     const email = document.getElementById('email').value.trim();
+    const birthDate = document.getElementById('birthDate').value;
     const password = document.getElementById('password').value;
     const confirmPassword = document.getElementById('confirmPassword').value;
 
-    // 2. Client-side validation
-    if (!username || !email || !password || !confirmPassword) {
+    // 2. Client-side validation (Added !birthDate check)
+    if (!username || !email || !birthDate || !password || !confirmPassword) {
         showAlert('Please fill out all fields.');
         return;
     }
@@ -64,7 +66,6 @@ registerForm.addEventListener('submit', async function(event) {
     try {
         showAlert('Creating your account...');
 
-
         const response = await fetch('http://localhost:3000/api/register', {
             method: 'POST',
             headers: {
@@ -73,14 +74,14 @@ registerForm.addEventListener('submit', async function(event) {
             body: JSON.stringify({
                 username: username,
                 email: email,
-                password: password
+                password: password,
+                birthDate: birthDate // <-- Passed birthDate to backend
             })
         });
 
         const data = await response.json();
 
         if (response.ok) {
-
             showAlert('Registration successful! Redirecting to login...');
             
             // Redirect back to login page after 2 seconds
@@ -94,24 +95,22 @@ registerForm.addEventListener('submit', async function(event) {
 
     } catch (error) {
         console.error('Network error:', error);
+        showAlert('Network error. Is your NodeJS server running?');
     }
 });
 
 
-
+// Toggle Password Visibility
 const togglePasswordButtons = document.querySelectorAll('.toggle-password');
 
 togglePasswordButtons.forEach(button => {
     button.addEventListener('click', function() {
-        // Find out which input this button controls
         const targetId = this.getAttribute('data-target');
         const passwordInput = document.getElementById(targetId);
         
-        // Find the icons inside this specific button
         const eyeIcon = this.querySelector('.eye-icon');
         const eyeSlashIcon = this.querySelector('.eye-slash-icon');
 
-        // Toggle the input type
         if (passwordInput.type === 'password') {
             passwordInput.type = 'text';
             eyeIcon.style.display = 'none';

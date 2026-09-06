@@ -1,7 +1,7 @@
 @import url('../../../global.css');
 
 body {
-  background-image: url('Images/Background.jpg');
+  background-image: url('../../Images/Background.jpg');
   background-size: cover;
 }
 

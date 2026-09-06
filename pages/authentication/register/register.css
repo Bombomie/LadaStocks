@@ -29,9 +29,10 @@ header a img {
 }
 
 .register-form {
-    background-color: var(--background-color);
-    padding: 2.5rem;
+    background-color: rgba(255, 255, 255, 0.1);
     border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 2.5rem;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
     width: 100%;
     max-width: 400px;
@@ -54,7 +55,7 @@ header a img {
 
 .back-button {
     text-decoration: none;
-    color: var(--indigo);
+    color: var(--gold);
     position: absolute;
     top: 20px;
     left: 20px;
@@ -75,7 +76,7 @@ header a img {
 
 .register-form h1 {
     margin-bottom: 1rem;
-    color: var(--indigo);
+    color: var(--gold);
     text-align: center;
 }
 
@@ -87,7 +88,7 @@ form {
 
 label {
     font-weight: bold;
-    color: var(--indigo);
+    color: var(--gold);
 }
 
 .form-group {
@@ -107,14 +108,14 @@ label {
 
 input:focus {
     outline: none;
-    border-color: var(--indigo);
-    box-shadow: 0 0 5px var(--indigo);
+    border-color: var(--gold);
+    box-shadow: 0 0 5px var(--gold);
 }
 
 button {
     padding: 0.8rem;
-    background-color: var(--indigo);
-    color: white;
+    background-color: var(--gold);
+    color: #FFFFFF;
     border: none;
     border-radius: 30px; 
     cursor: pointer;
@@ -134,10 +135,11 @@ p {
     text-align: center;
     margin-top: 1rem;
     font-size: 0.9rem;
+    color: white;
 }
 
 p a {
-    color: var(--indigo);
+    color: var(--gold);
     text-decoration: none;
     font-weight: bold;
 }
