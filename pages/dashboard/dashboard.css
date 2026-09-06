@@ -109,10 +109,11 @@ hr {
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr;
   gap: 20px;
   margin-top: 20px;
 }
+
 
 .card {
   background-color: rgba(255, 255, 255, 0.1);
@@ -126,5 +127,36 @@ hr {
 
 .card.large {
   grid-column: 1 / -1;
+  height: 300px;
+}
+
+/* Tablet view (768px and up) */
+@media (min-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Desktop view (1024px and up) */
+@media (min-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.card {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  overflow: hidden; /* Keeps the TradingView charts inside the rounded corners */
+}
+
+.card.small {
+  height: 240px;
+}
+
+.card.large {
+  /* Spans from the first column line to the last, regardless of how many columns exist */
+  grid-column: 1 / -1; 
   height: 300px;
 }
