@@ -104,6 +104,8 @@ label {
     border: 1px solid #bbb;
     border-radius: 8px;
     font-size: 1em;
+    overflow: hidden; /* Prevents text from overflowing */
+    text-overflow: ellipsis; /* Adds "..." for overflowed text */
 }
 
 input:focus {
