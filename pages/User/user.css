@@ -146,5 +146,5 @@ header a img {
 
 .placeholder-card.wide {
   grid-column: 1 / -1;
-  height: 100px;
+  height: 20rem;
 }
