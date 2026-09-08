@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LadaStocks - Charts</title>
+  <link rel="stylesheet" href="charts.css" />
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header>
+    <a href="dashboard.html" class="logo">
+      <img src="../../Images/LadaStocks.png" alt="Lada Stocks logo">
+    </a>
+
+    <ul class="nav-links">
+      <li><a href="dashboard.html">Dashboard</a></li>
+      <li><a href="#">Portfolio</a></li>
+      <li><a href="#">Wallet</a></li>
+      <li><a href="#">Watchlist</a></li>
+      <li><a href="#">Transactions</a></li>
+      <li><a href="charts.html" class="active">Charts</a></li>
+    </ul>
+
+    <div class="nav-right">
+      <button class="menu-toggle">☰</button>
+      <span class="username">Username</span>
+      <img src="" alt="User avatar" class="avatar">
+    </div>
+  </header>
+
+  <section class="content">
+    <h1>Search Stocks</h1>
+    <hr />
+
+    <div class="search-bar-wrapper">
+      <input type="text" id="symbolInput" class="search-input" placeholder="Enter stock ticker (e.g. AAPL, TSLA, MSFT)..." />
+      <button class="search-btn" id="searchBtn" onclick="searchStock()">Search</button>
+      <span id="statusMsg" class="status-msg"></span>
+    </div>
+
+    <div class="dashboard-grid">
+      <div class="card large">
+        <canvas id="customStockChart"></canvas>
+      </div>
+    </div>
+  </section>
+
+ <script>
+    let chartInstance = null;
+    
+    // 1. Paste your free Twelve Data API key here:
+    const TWELVE_DATA_API_KEY = '1bbc7128e8314b2ba1c869f85b9898b2';
+
+    // Trigger search on Enter key
+    document.getElementById('symbolInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') searchStock();
+    });
+
+    async function searchStock() {
+      const input = document.getElementById('symbolInput');
+      const status = document.getElementById('statusMsg');
+      const symbol = input.value.trim().toUpperCase();
+
+      if (!symbol) return;
+
+      status.textContent = `Fetching data for ${symbol}...`;
+
+      try {
+        // Twelve Data Time Series API: 1day interval, 90 data points (~3 months)
+        const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=1day&outputsize=90&apikey=${TWELVE_DATA_API_KEY}`;
+        
+        const response = await fetch(url);
+        const json = await response.json();
+
+        // Twelve Data returns status "ok" when successful
+        if (json.status === 'ok' && json.values) {
+          
+          // Twelve Data returns newest dates first. We must reverse the array so the chart reads left-to-right (oldest to newest).
+          const historicalData = json.values.reverse();
+          
+          const dates = historicalData.map(day => {
+            const dateObj = new Date(day.datetime);
+            return dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          });
+          
+          const closes = historicalData.map(day => parseFloat(day.close).toFixed(2));
+          
+          renderChart(symbol, dates, closes);
+          status.textContent = `Displaying 3-Month performance for ${symbol}`;
+        } else {
+          // If the API returns an error (e.g., invalid symbol or rate limit)
+          throw new Error(json.message || 'Symbol not found');
+        }
+      } catch (err) {
+        console.error('API Error:', err);
+        status.textContent = `Could not load data for "${symbol}". Please check the ticker or your API key.`;
+      }
+    }
+
+    function renderChart(ticker, labels, dataPoints) {
+      const ctx = document.getElementById('customStockChart').getContext('2d');
+
+      if (chartInstance) {
+        chartInstance.destroy();
+      }
+
+      // Smooth gradient fill
+      const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+      gradient.addColorStop(0, 'rgba(255, 195, 73, 0.35)');
+      gradient.addColorStop(1, 'rgba(255, 195, 73, 0.0)');
+
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: `${ticker} Daily Close ($)`,
+            data: dataPoints,
+            borderColor: '#FFC349',
+            borderWidth: 2,
+            backgroundColor: gradient,
+            fill: true,
+            tension: 0.25,
+            pointRadius: 0,
+            pointHoverRadius: 6,
+            pointHoverBackgroundColor: '#FFC349',
+            pointHoverBorderColor: '#0a1f44',
+            pointHoverBorderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            intersect: false,
+            mode: 'index',
+          },
+          plugins: {
+            legend: {
+              labels: {
+                color: 'white',
+                font: { family: 'Jost', size: 14 }
+              }
+            },
+            tooltip: {
+              backgroundColor: 'rgba(10, 31, 68, 0.9)',
+              titleFont: { family: 'Jost' },
+              bodyFont: { family: 'Jost' },
+              borderColor: 'rgba(255, 255, 255, 0.15)',
+              borderWidth: 1
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: 'rgba(255, 255, 255, 0.7)', font: { family: 'Jost' } },
+              grid: { color: 'rgba(255, 255, 255, 0.06)' }
+            },
+            y: {
+              ticks: { color: 'rgba(255, 255, 255, 0.7)', font: { family: 'Jost' } },
+              grid: { color: 'rgba(255, 255, 255, 0.06)' }
+            }
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>
