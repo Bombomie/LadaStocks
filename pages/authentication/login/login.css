@@ -4,6 +4,7 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+
 }
 
 body {
@@ -14,6 +15,7 @@ body {
     min-height: 100vh;
     padding: 0 1rem; 
     animation: fadeInBody 1.5s ease 0.3s forwards;
+
 }
 
 header {
@@ -105,6 +107,8 @@ label {
     border: 1px solid #bbb;
     border-radius: 8px;
     font-size: 1em;
+    overflow: hidden; /* Prevents text from overflowing */
+    text-overflow: ellipsis; /* Adds "..." for overflowed text */
 }
 
 input:focus {
