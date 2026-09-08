@@ -19,8 +19,6 @@ body {
   min-height: 100vh;
 }
 
-
-
 header {
   position: absolute;
   top: 20px;
@@ -39,7 +37,7 @@ header a img {
   justify-content: center; 
   display: block;
   margin: 0 auto;
-  margin-top: 10rem;
+  margin-top: 17rem;
 }
 
 .Content h1 {
