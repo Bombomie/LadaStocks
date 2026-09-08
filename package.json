@@ -1,6 +1,7 @@
 {
   "name": "lada-stocks",
   "version": "0.1.0",
+  "type": "module",
   "private": true,
   "engines": {
     "node": ">=20.19.0"
