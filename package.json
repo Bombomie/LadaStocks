@@ -1,37 +1,22 @@
 {
   "name": "lada-stocks",
-  "version": "0.1.0",
-  "type": "module",
+  "version": "0.2.0",
   "private": true,
+  "type": "module",
   "engines": {
     "node": ">=20.19.0"
   },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "dev": "node --watch server/index.js",
+    "start": "node server/index.js"
   },
   "dependencies": {
-    "@supabase/ssr": "0.12.5",
-    "@supabase/supabase-js": "2.112.4",
-    "next": "16.3.4",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "@supabase/supabase-js": "^2.112.4",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0"
   },
-  "devDependencies": {
-    "@types/node": "26.4.1",
-    "@types/react": "19.2.18",
-    "@types/react-dom": "19.2.5",
-    "eslint": "9.39.5",
-    "eslint-config-next": "16.3.4",
-    "supabase": "^2.117.0",
-    "typescript": "5.9.3"
-  },
-  "description": "A simulated Stock Market website",
-  "main": "index.js",
-  "keywords": [],
-  "author": "",
+  "description": "Lada Stocks simulated stock market website with an Express API server",
   "license": "ISC"
 }
