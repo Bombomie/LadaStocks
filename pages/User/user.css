@@ -80,12 +80,11 @@ header a img {
   font-size: 20px;
   cursor: pointer;
 }
-
-.username {
+h1 .username {
   font-weight: 600;
   font-size: 16px;
   font-family: Lexend Deca;
-}
+} 
 
 .avatar {
   width: 40px;
