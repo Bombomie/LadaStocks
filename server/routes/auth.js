@@ -89,6 +89,7 @@ router.post('/login', async (req, res) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error || !data.session || !data.user) {
+      console.error('--- SUPABASE LOGIN ERROR ---', error);
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
 

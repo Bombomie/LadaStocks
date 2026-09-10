@@ -15,7 +15,8 @@
     "cookie-parser": "^1.4.7",
     "dotenv": "^16.4.7",
     "express": "^5.2.1",
-    "helmet": "^8.1.0"
+    "helmet": "^8.1.0",
+    "ws": "^8.21.3"
   },
   "description": "Lada Stocks simulated stock market website with an Express API server",
   "license": "ISC"
