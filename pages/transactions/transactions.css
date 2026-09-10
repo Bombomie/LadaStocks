@@ -1,0 +1,94 @@
+@import url('../../../global.css');
+
+body {
+  background-image: url('../../Images/Background.jpg');
+  background-size: cover;
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+:root {
+  --header-height: 80px;
+}
+
+header {
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 40px;  
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  right: 20px;
+  padding: 12px 24px;
+  background-color: #0a1f44;
+  border-radius: 50px;
+  background-color: rgba(10, 31, 68, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+header a img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+.nav-links {
+ display: flex;
+  list-style: none;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  align-items: center;
+  font-family: Lexend Deca;
+}
+
+.nav-links a {
+  display: inline-block;
+  padding: 8px 18px;
+  border-radius: 50px;
+  border: 1px solid var(--gold, #FFC349);
+  color: var(--gold, #FFC349);
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 14px;
+  transition: background-color 0.2s ease;
+}
+
+.nav-links a:hover,
+.nav-links a.active {
+  background-color: var(--gold, #FFC349);
+  color: #0a1f44;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: white;
+  margin-left: auto;
+}
+
+.menu-toggle {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.username {
+  font-weight: 600;
+  font-size: 16px;
+  font-family: Lexend Deca;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}   
