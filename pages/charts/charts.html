@@ -37,16 +37,57 @@
     <h1>Charts</h1>
     <hr>
       <div class="main-chart">
-        <h2>Stock Name</h2>
+  <h2>Stock Name</h2>
 
-        <div class="chart-box">
-        </div>
+  <div class="chart-toolbar">
+  <div class="search-bar">
+    <input type="text" class="search-input" id="stockSearch" placeholder="Search stocks...">
+    <button class="search-btn" type="submit">
+      <img src="../../Images/SVG/search.svg" class="search-icon" alt="Search">
+    </button>
+  </div>
 
-        <div class="chart-actions">
-        <button class="btn-watchlist">Add to watchlist</button>
-        <button class="btn-alert">Set price alert</button>
-        </div>
-      </div>
+  <div class="chart-tools">
+  <button class="tool-btn" data-mode="pan" title="Pan">
+    <img src="../../Images/SVG/hand.svg" class="tool-icon" alt="Pan">
+  </button>
+  <button class="tool-btn" data-mode="zoom" title="Zoom">
+    <img src="../../Images/SVG/zoom.svg" class="tool-icon" alt="Zoom">
+  </button>
+  <button class="tool-btn" data-mode="drawline" title="Draw line">
+    <img src="../../Images/SVG/line.svg" class="tool-icon" alt="Draw line">
+  </button>
+  <button class="tool-btn" data-mode="drawrect" title="Draw rectangle">
+    <img src="../../Images/SVG/rectangle.svg" class="tool-icon" alt="Draw rectangle">
+  </button>
+  <button class="tool-btn" data-mode="drawcircle" title="Draw circle">
+    <img src="../../Images/SVG/circle.svg" class="tool-icon" alt="Draw circle">
+  </button>
+  <button class="tool-btn" id="toolAnnotate" title="Add annotation">
+    <img src="../../Images/SVG/annotation.svg" class="tool-icon" alt="Add annotation">
+  </button>
+  <button class="tool-btn" data-mode="eraseshape" title="Erase shape">
+    <img src="../../Images/SVG/erase.svg" class="tool-icon" alt="Erase shape">
+  </button>
+  <button class="tool-btn" id="toolReset" title="Reset view">
+    <img src="../../Images/SVG/reset.svg" class="tool-icon" alt="Reset view">
+  </button>
+</div>
+</div>
+
+  <div class="chart-box" id="candleChart"></div>
+
+  <div class="details-panel" id="detailsPanel">
+    <p class="details-empty">Select a stock to see details.</p>
+  </div>
+
+  <div class="chart-actions">
+    <button class="btn-watchlist">Add to watchlist</button>
+    <button class="btn-alert">Set price alert</button>
+  </div>
+</div>
+
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   </section>
 </body>
 </html>
