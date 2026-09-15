@@ -1,3 +1,4 @@
+const API_BASE_URL = 'https://ladastocks-api-server.onrender.com';
 const loginForm = document.getElementById('loginForm');
 
 function showAlert(message) {
@@ -44,7 +45,7 @@ loginForm.addEventListener('submit', async function (event) {
   try {
     showAlert('Logging in...');
 
-    const response = await fetch('/api/auth/login', {
+    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -64,7 +65,7 @@ loginForm.addEventListener('submit', async function (event) {
     }, 700);
   } catch (error) {
     console.error('Network error:', error);
-    showAlert('Network error. Is the Node.js server running?');
+    showAlert('Network error. Please try again in a moment.');
   }
 });
 
