@@ -1,6 +1,8 @@
+const API_BASE_URL = 'https://ladastocks-api-server.onrender.com';
+
 async function loadCurrentUser() {
   try {
-    const response = await fetch('/api/auth/me', {
+    const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
       method: 'GET',
       credentials: 'include',
       headers: { Accept: 'application/json' },

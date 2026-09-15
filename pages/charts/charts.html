@@ -1,19 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="apple-touch-icon" sizes="180x180" href="/Images/Favicon/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="Images/Favicon/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="Images/Favicon/favicon-16x16.png">
-    <link rel="manifest" href="Images/Favicon/site.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="/Images/Favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="Images/Favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="Images/Favicon/favicon-16x16.png">
+  <link rel="manifest" href="Images/Favicon/site.webmanifest">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LadaStocks</title>
+  <title>LadaStocks - Charts</title>
   <link rel="stylesheet" href="charts.css" />
-  <script src="charts.js" defer></script>
+  <!-- Import Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <header>
-    <a href="dashboard.html" class="logo">
+    <a href="../dashboard/dashboard.html" class="logo">
       <img src="../../Images/LadaStocks.png" alt="Lada Stocks logo">
     </a>
 
@@ -33,5 +34,184 @@
       </a>
     </div>
   </header>
+  
+  <section class="content">
+    <h1>Charts</h1>
+    <hr>
+      <div class="main-chart">
+  <h2>Stock Name</h2>
+
+  <div class="chart-toolbar">
+  <div class="search-bar">
+    <input type="text" class="search-input" id="stockSearch" placeholder="Search stocks...">
+    <button class="search-btn" type="submit">
+      <img src="../../Images/SVG/search.svg" class="search-icon" alt="Search">
+    </button>
+  </div>
+
+  <div class="chart-tools">
+  <button class="tool-btn" data-mode="pan" title="Pan">
+    <img src="../../Images/SVG/hand.svg" class="tool-icon" alt="Pan">
+  </button>
+  <button class="tool-btn" data-mode="zoom" title="Zoom">
+    <img src="../../Images/SVG/zoom.svg" class="tool-icon" alt="Zoom">
+  </button>
+  <button class="tool-btn" data-mode="drawline" title="Draw line">
+    <img src="../../Images/SVG/line.svg" class="tool-icon" alt="Draw line">
+  </button>
+  <button class="tool-btn" data-mode="drawrect" title="Draw rectangle">
+    <img src="../../Images/SVG/rectangle.svg" class="tool-icon" alt="Draw rectangle">
+  </button>
+  <button class="tool-btn" data-mode="drawcircle" title="Draw circle">
+    <img src="../../Images/SVG/circle.svg" class="tool-icon" alt="Draw circle">
+  </button>
+  <button class="tool-btn" id="toolAnnotate" title="Add annotation">
+    <img src="../../Images/SVG/annotation.svg" class="tool-icon" alt="Add annotation">
+  </button>
+  <button class="tool-btn" data-mode="eraseshape" title="Erase shape">
+    <img src="../../Images/SVG/erase.svg" class="tool-icon" alt="Erase shape">
+  </button>
+  <button class="tool-btn" id="toolReset" title="Reset view">
+    <img src="../../Images/SVG/reset.svg" class="tool-icon" alt="Reset view">
+  </button>
+</div>
+</div>
+
+  <div class="chart-box" id="candleChart"></div>
+
+  <div class="details-panel" id="detailsPanel">
+    <p class="details-empty">Select a stock to see details.</p>
+  </div>
+
+  <div class="chart-actions">
+    <button class="btn-watchlist">Add to watchlist</button>
+    <button class="btn-alert">Set price alert</button>
+  </div>
+</div>
+
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  </section>
+
+  <!-- Twelve Data Script -->
+  <script>
+    let chartInstance = null;
+    
+    // Twelve Data API Key
+    const TWELVE_DATA_API_KEY = '1bbc7128e8314b2ba1c869f85b9898b2'; 
+
+    document.getElementById('symbolInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') searchStock();
+    });
+
+    async function searchStock() {
+      const input = document.getElementById('symbolInput');
+      const status = document.getElementById('statusMsg');
+      const title = document.getElementById('stockTitle');
+      const symbol = input.value.trim().toUpperCase();
+
+      if (!symbol) return;
+
+      status.textContent = `Fetching data for ${symbol}...`;
+
+      try {
+        const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=1day&outputsize=90&apikey=${TWELVE_DATA_API_KEY}`; 
+        
+        const response = await fetch(url);
+        const json = await response.json();
+
+        if (json.status === 'ok' && json.values) { 
+          const historicalData = json.values.reverse(); 
+          
+          const dates = historicalData.map(day => {
+            const dateObj = new Date(day.datetime); 
+            return dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          });
+          
+          const closes = historicalData.map(day => parseFloat(day.close).toFixed(2));
+          
+          title.textContent = `${symbol} - 3 Month Performance`;
+          renderChart(symbol, dates, closes);
+          status.textContent = ''; 
+        } else {
+          throw new Error(json.message || 'Symbol not found');
+        }
+      } catch (err) {
+        console.error('API Error:', err);
+        status.textContent = `Could not load data for "${symbol}". Check ticker.`;
+      }
+    }
+
+    function renderChart(ticker, labels, dataPoints) {
+      const ctx = document.getElementById('customStockChart').getContext('2d');
+
+      if (chartInstance) {
+        chartInstance.destroy();
+      }
+
+      const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+      gradient.addColorStop(0, 'rgba(255, 195, 73, 0.35)');
+      gradient.addColorStop(1, 'rgba(255, 195, 73, 0.0)');
+
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: `${ticker} Daily Close ($)`,
+            data: dataPoints,
+            borderColor: '#FFC349',
+            borderWidth: 2,
+            backgroundColor: gradient,
+            fill: true,
+            tension: 0.25,
+            pointRadius: 0,
+            pointHoverRadius: 6,
+            pointHoverBackgroundColor: '#FFC349',
+            pointHoverBorderColor: '#0a1f44',
+            pointHoverBorderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            intersect: false,
+            mode: 'index',
+          },
+          plugins: {
+            legend: {
+              labels: {
+                color: 'white',
+                font: { family: 'Jost', size: 14 }
+              }
+            },
+            tooltip: {
+              backgroundColor: 'rgba(10, 31, 68, 0.9)',
+              titleFont: { family: 'Jost' },
+              bodyFont: { family: 'Jost' },
+              borderColor: 'rgba(255, 255, 255, 0.15)',
+              borderWidth: 1
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: 'rgba(255, 255, 255, 0.7)', font: { family: 'Jost' } },
+              grid: { color: 'rgba(255, 255, 255, 0.06)' }
+            },
+            y: {
+              ticks: { color: 'rgba(255, 255, 255, 0.7)', font: { family: 'Jost' } },
+              grid: { color: 'rgba(255, 255, 255, 0.06)' }
+            }
+          }
+        }
+      });
+    }
+
+    // Automatically load AAPL when the page opens
+    window.onload = () => {
+      document.getElementById('symbolInput').value = 'AAPL';
+      searchStock();
+    };
+  </script>
 </body>
 </html>

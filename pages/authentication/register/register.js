@@ -1,3 +1,5 @@
+const API_BASE_URL = 'https://ladastocks-api-server.onrender.com';
+
 document.getElementById('birthDate').value = '';
 const registerForm = document.getElementById('registerForm');
 
@@ -58,7 +60,7 @@ registerForm.addEventListener('submit', async function (event) {
   try {
     showAlert('Creating your account...');
 
-    const response = await fetch('/api/auth/register', {
+    const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -83,7 +85,7 @@ registerForm.addEventListener('submit', async function (event) {
     }, 1200);
   } catch (error) {
     console.error('Network error:', error);
-    showAlert('Network error. Is the Node.js server running?');
+    showAlert('Network error. Please try again in a moment.');
   }
 });
 

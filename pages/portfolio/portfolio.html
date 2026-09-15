@@ -13,7 +13,7 @@
 </head>
 <body>
   <header>
-    <a href="dashboard.html" class="logo">
+    <a href="../dashboard/dashboard.html" class="logo">
       <img src="../../Images/LadaStocks.png" alt="Lada Stocks logo">
     </a>
 
@@ -33,5 +33,59 @@
       </a>
     </div>
   </header>
+  <section class="content">
+    <h1>Portfolio</h1>
+    <hr>
+    <div class="summary-strip" id="summaryStrip">
+      <div class="summary-card">
+        <span class="summary-label">Portfolio Value</span>
+        <span class="summary-value" id="portfolioValue">$0.00</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Cash Balance</span>
+        <span class="summary-value" id="cashBalance">$0.00</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Today's Change</span>
+        <span class="summary-value" id="todaysChange">$0.00</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Total Return</span>
+        <span class="summary-value" id="totalReturn">0.00%</span>
+      </div>
+    </div>
+ 
+    <div class="lower-grid">
+ 
+      <div class="watchlist-panel">
+        <h2>Watchlist</h2>
+        <div class="table-wrap">
+          <table class="watchlist-table">
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th>Company</th>
+                <th>Price</th>
+                <th>Change</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="watchlistBody">
+            </tbody>
+          </table>
+        </div>
+        <button class="add-symbol-btn" id="addSymbolBtn" type="button">+ Add symbol</button>
+      </div>
+ 
+      <div class="details-panel">
+        <h2>Details</h2>
+        <div id="detailsBody" class="details-body">
+          <p class="details-empty">Select a stock from your watchlist to see details.</p>
+        </div>
+      </div>
+ 
+    </div>
+ 
+  </section>
 </body>
 </html>

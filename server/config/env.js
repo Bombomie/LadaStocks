@@ -18,7 +18,7 @@ for (const name of required) {
 
 export const env = {
   projectRoot,
-  port: Number(process.env.PORT || 3000),
+  port: Number(process.env.PORT || 5500),
   nodeEnv: process.env.NODE_ENV || 'development',
   supabaseUrl: process.env.SUPABASE_URL,
   supabasePublishableKey: process.env.SUPABASE_PUBLISHABLE_KEY,

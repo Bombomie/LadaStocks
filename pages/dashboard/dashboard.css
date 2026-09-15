@@ -9,6 +9,18 @@ body {
 
 :root {
   --header-height: 80px;
+  --panel: rgba(10, 31, 68, 0.55);
+  --panel-soft: rgba(10, 31, 68, 0.75);
+  --border-soft: rgba(255, 255, 255, 0.15);
+  --card-top: rgba(255, 195, 73, 0.16);
+  --card-bottom: rgba(10, 31, 68, 0.7);
+  --radius-lg: 24px;
+  --radius-md: 14px;
+  --text-primary: #ffffff;
+  --text-muted: rgba(255, 255, 255, 0.65);
+  --accent-up: #4ade80;
+  --accent-down: #f87171;
+  --accent-brand: var(--gold, #FFC349);
 }
 
 header {
