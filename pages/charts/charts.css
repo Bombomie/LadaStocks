@@ -34,7 +34,6 @@ header {
   left: 20px;
   right: 20px;
   padding: 12px 24px;
-  background-color: #0a1f44;
   border-radius: 50px;
   background-color: rgba(10, 31, 68, 0.4);
   backdrop-filter: blur(12px);
@@ -48,14 +47,15 @@ header a img {
   height: 40px;
   border-radius: 50%;
 }
+
 .nav-links {
- display: flex;
+  display: flex;
   list-style: none;
   gap: 10px;
   margin: 0;
   padding: 0;
   align-items: center;
-  font-family: Lexend Deca;
+  font-family: 'Lexend Deca', sans-serif;
 }
 
 .nav-links a {
@@ -95,7 +95,7 @@ header a img {
 .username {
   font-weight: 600;
   font-size: 16px;
-  font-family: Lexend Deca;
+  font-family: 'Lexend Deca', sans-serif;
 }
 
 .avatar {
@@ -105,22 +105,22 @@ header a img {
   object-fit: cover;
 }
 
-.content{
-    color: white;
-    margin-top: calc(var(--header-height) + 70px);
-    padding: 0 40px;
+.content {
+  color: white;
+  margin-top: calc(var(--header-height) + 70px);
+  padding: 0 40px;
 }
 
 hr {
-    border: none;
-    background-color: white;
-    height: 2px;  
-    margin: 20px 0;
+  border: none;
+  background-color: white;
+  height: 2px;  
+  margin: 20px 0;
 }
 
 .content h1 {
-    font-family: Jost;
-    color: white;
+  font-family: 'Jost', sans-serif;
+  color: white;
 }
 
 .main-chart {
@@ -295,4 +295,4 @@ hr {
   color:#0a1f44;
   font-family: Jost;
   font-size: 28px;
-}
+} 
