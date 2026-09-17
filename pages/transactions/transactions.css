@@ -122,3 +122,84 @@ hr {
     font-family: Jost;
     color: white;
 }
+
+.transactions-panel {
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  font-family: Jost;
+  margin-top: 24px;
+}
+
+.table-wrap { overflow-x: auto; }
+
+.transactions-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.transactions-table thead th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  padding: 0 12px 10px;
+  border-bottom: 1px solid var(--border-soft);
+  white-space: nowrap;
+}
+
+.transactions-table td {
+  padding: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  white-space: nowrap;
+}
+
+.transactions-table tbody tr:hover {
+  background: var(--panel-soft);
+}
+
+.trade-type.buy  { color: var(--accent-up); font-weight: 600; }
+.trade-type.sell,
+.trade-type.short-sell { color: var(--accent-down); font-weight: 600; }
+
+.status-executed { color: var(--accent-up); }
+.status-rejected  { color: var(--accent-down); }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.pagination button {
+  min-width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border-soft);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.pagination button:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--accent-brand);
+}
+
+.pagination button.active {
+  background: var(--accent-brand);
+  color: #0a1f44;
+  border-color: var(--accent-brand);
+}
+
+.pagination button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

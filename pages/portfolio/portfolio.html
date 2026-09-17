@@ -9,7 +9,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LadaStocks</title>
   <link rel="stylesheet" href="portfolio.css" />
-  <script src="portfolio.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="portfolio.js" defer></script>
 </head>
 <body>
   <header>
@@ -36,6 +37,7 @@
   <section class="content">
     <h1>Portfolio</h1>
     <hr>
+    <h2>Your Stock Portfolio</h2>
     <div class="summary-strip" id="summaryStrip">
       <div class="summary-card">
         <span class="summary-label">Portfolio Value</span>
@@ -54,36 +56,29 @@
         <span class="summary-value" id="totalReturn">0.00%</span>
       </div>
     </div>
- 
+    <div class="chart-panel" style="margin-top:24px;">
+      <h2>Portfolio Value Over Time</h2>
+      <canvas id="portfolioChart" height="90"></canvas>
+    </div>
     <div class="lower-grid">
- 
       <div class="watchlist-panel">
-        <h2>Watchlist</h2>
+        <h2>Holdings</h2>
         <div class="table-wrap">
           <table class="watchlist-table">
             <thead>
               <tr>
-                <th>Symbol</th>
-                <th>Company</th>
-                <th>Price</th>
-                <th>Change</th>
-                <th></th>
+                <th>Symbol</th><th>Company</th><th>Price</th><th>Qty</th>
+                <th>Value</th><th>Capital Gains</th><th>Currency</th><th>Return</th>
               </tr>
             </thead>
-            <tbody id="watchlistBody">
-            </tbody>
+            <tbody id="watchlistBody"></tbody>
           </table>
         </div>
-        <button class="add-symbol-btn" id="addSymbolBtn" type="button">+ Add symbol</button>
       </div>
- 
       <div class="details-panel">
         <h2>Details</h2>
-        <div id="detailsBody" class="details-body">
-          <p class="details-empty">Select a stock from your watchlist to see details.</p>
-        </div>
+        <div class="details-body" id="detailsBody"></div>
       </div>
- 
     </div>
  
   </section>

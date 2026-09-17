@@ -34,8 +34,44 @@
     </div>
   </header>
   <section class="content">
-    <h1>Wallet</h1>
-    <hr>
-  </section>
+  <h1>Wallet</h1>
+  <hr>
+
+  <div class="summary-strip" id="walletSummary">
+    <div class="summary-card">
+      <span class="summary-label">Cash Balance</span>
+      <span class="summary-value" id="cashBalance">$0.00</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-label">Portfolio Value</span>
+      <span class="summary-value" id="portfolioValue">$0.00</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-label">Total Earning (Sells)</span>
+      <span class="summary-value up" id="totalEarning">$0.00</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-label">Total Spending (Buys)</span>
+      <span class="summary-value down" id="totalSpending">$0.00</span>
+    </div>
+  </div>
+
+  <div class="lower-grid">
+    <div class="watchlist-panel">
+      <h2>Balance History</h2>
+      <canvas id="balanceChart" height="90"></canvas>
+    </div>
+
+    <div class="details-panel">
+  <h2>Manage Funds</h2>
+  <div class="wallet-actions">
+    <input type="number" id="fundAmount" placeholder="Amount" min="0" step="0.01" />
+    <div class="details-actions">
+      <button class="buy-btn" id="depositBtn" type="button">Deposit</button>
+      <button class="sell-btn" id="withdrawBtn" type="button">Withdraw</button>
+    </div>
+  </div>
+  </div>
+</div>
 </body>
 </html>
