@@ -4,7 +4,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import path from 'path';
 import authRouter from './routes/auth.js';
-import stocksRouter from './routes/stocks.js'; // <-- Import the new router
+import stocksRouter from './routes/stocks.js'; 
 import { env } from './config/env.js';
 
 const app = express();
@@ -24,7 +24,21 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.use('/api/auth', authRouter);
-app.use('/api/stocks', stocksRouter); // <-- Mount the new router here
+app.use('/api/stocks', stocksRouter);
+
+// --- ADD THESE TEMPORARY ROUTES ---
+app.get('/api/transactions', (_req, res) => {
+  // Returns an empty array for now so the frontend doesn't crash
+  res.json([]); 
+});
+
+app.get('/api/market/quote', async (req, res) => {
+  const { symbols } = req.query;
+  if (!symbols) return res.status(400).json({ message: 'Symbols required' });
+  // Temporary mock response
+  res.json({});
+});
+// ----------------------------------
 
 // Serve the existing HTML/CSS/JS project from the same Express server.
 app.use(express.static(env.projectRoot));
