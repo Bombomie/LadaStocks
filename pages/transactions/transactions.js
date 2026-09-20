@@ -3,14 +3,23 @@ async function loadCurrentUser() {
     const response = await fetch('/api/auth/me', {
       method: 'GET', credentials: 'include', headers: { Accept: 'application/json' },
     });
-    if (response.status === 401) return window.location.replace('../authentication/login/login.html');
+    
+    // ONLY redirect if the server explicitly says "Unauthorized"
+    if (response.status === 401) {
+      window.location.replace('../authentication/login/login.html');
+      return false; 
+    }
+    
     const data = await response.json();
     if (!response.ok) throw new Error(data.message);
+    
     const el = document.querySelector('.username');
     if (el) el.textContent = data.user.username || 'User';
+    return true; // Success!
   } catch (err) {
     console.error('Auth error:', err);
-    window.location.replace('../authentication/login/login.html');
+    // Don't redirect on generic network errors, just log it
+    return false; 
   }
 }
 
@@ -97,7 +106,10 @@ function renderPagination() {
 }
 
 async function init() {
-  loadCurrentUser();
+  // MUST await this! Otherwise it runs in the background and causes race conditions
+  const isAuthed = await loadCurrentUser();
+  if (!isAuthed) return; // Stop loading the page if auth failed
+
   try {
     transactions = await fetchTransactions();
 
