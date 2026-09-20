@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://ladastocks-api-server.onrender.com';
+const API_BASE_URL = 'http://localhost:20269';
 
 async function loadCurrentUser() {
   try {

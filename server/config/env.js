@@ -18,8 +18,9 @@ for (const name of required) {
 
 export const env = {
   projectRoot,
-  port: Number(process.env.PORT || 5500),
+  port: Number(process.env.PORT || 20269),
   nodeEnv: process.env.NODE_ENV || 'development',
   supabaseUrl: process.env.SUPABASE_URL,
   supabasePublishableKey: process.env.SUPABASE_PUBLISHABLE_KEY,
+  twelveDataApiKey: process.env.TWELVE_DATA_API_KEY,
 };
