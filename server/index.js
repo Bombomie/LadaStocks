@@ -1,8 +1,10 @@
+// index.js
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import path from 'path';
 import authRouter from './routes/auth.js';
+import stocksRouter from './routes/stocks.js'; // <-- Import the new router
 import { env } from './config/env.js';
 
 const app = express();
@@ -10,8 +12,6 @@ const app = express();
 app.disable('x-powered-by');
 app.use(
   helmet({
-    // The current dashboard embeds TradingView scripts, so a strict CSP would
-    // break the existing page. Add a tailored CSP later when deployment starts.
     contentSecurityPolicy: false,
   }),
 );
@@ -24,11 +24,12 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.use('/api/auth', authRouter);
+app.use('/api/stocks', stocksRouter); // <-- Mount the new router here
 
 // Serve the existing HTML/CSS/JS project from the same Express server.
-// This keeps browser -> API same-origin and avoids exposing Supabase in the browser.
 app.use(express.static(env.projectRoot));
 
+// This must remain at the bottom to catch unmatched /api routes
 app.use('/api', (_req, res) => {
   res.status(404).json({ message: 'API endpoint not found.' });
 });
