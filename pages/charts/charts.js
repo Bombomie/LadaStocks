@@ -1,32 +1,3 @@
-async function loadCurrentUser() {
-  try {
-    const response = await fetch('/api/auth/me', {
-      method: 'GET',
-      credentials: 'include',
-      headers: { Accept: 'application/json' },
-    });
-
-    if (response.status === 401) {
-      window.location.replace('../authentication/login/login.html');
-      return;
-    }
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || 'Could not load user session.');
-    }
-
-    const usernameElement = document.querySelector('.username');
-    if (usernameElement) {
-      usernameElement.textContent = data.user.username || 'User';
-    }
-  } catch (error) {
-    console.error('Dashboard authentication error:', error);
-    window.location.replace('../authentication/login/login.html');
-  }
-}
-
 loadCurrentUser();
 
 // ---- Chart setup ----
@@ -36,11 +7,11 @@ let currentSymbol = 'AAPL'; // default until search picks something else
 
 async function loadCandles(symbol) {
   try {
-    const response = await fetch(`/api/stocks/${symbol}/candles`, {
-      method: 'GET',
-      credentials: 'include',
-      headers: { Accept: 'application/json' },
-    });
+    const response = await fetch(`${API_BASE_URL}/api/stocks/${encodeURIComponent(symbol)}/candles`, {
+    method: 'GET',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  });
 
     const data = await response.json();
 
@@ -83,7 +54,6 @@ function renderChart({ dates, open, high, low, close }) {
   };
 
   Plotly.newPlot(chartDiv, [trace], layout, config);
-  setupToolbar();
 }
 
 function setupToolbar() {
@@ -130,4 +100,6 @@ document.querySelector('.search-btn')?.addEventListener('click', (e) => {
   }
 });
 
-loadCandles(currentSymbol);
+loadCandles(currentSymbol).then(() => {
+  if (chartDiv.on) setupToolbar();
+});
