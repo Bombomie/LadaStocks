@@ -85,7 +85,7 @@ registerForm.addEventListener('submit', async function (event) {
     }, 1200);
   } catch (error) {
     console.error('Network error:', error);
-    showAlert('Network error. Please try again in a moment.');
+    showAlert('Network error. Could not reach the API server.');
   }
 });
 

@@ -1,4 +1,5 @@
 const API_BASE_URL = 'https://ladastocks-api-server.onrender.com';
+
 const loginForm = document.getElementById('loginForm');
 
 function showAlert(message) {
@@ -65,7 +66,7 @@ loginForm.addEventListener('submit', async function (event) {
     }, 700);
   } catch (error) {
     console.error('Network error:', error);
-    showAlert('Network error. Please try again in a moment.');
+    showAlert('Network error. Could not reach the API server.');
   }
 });
 
