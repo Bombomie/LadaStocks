@@ -127,7 +127,7 @@ async function renderChart() {
 }
 
 async function init() {
-  loadCurrentUser();
+  // loadCurrentUser();
   try {
     const raw = await fetchHoldings();
     const symbols = raw.map((h) => h.symbol);
