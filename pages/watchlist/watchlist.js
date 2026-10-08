@@ -142,7 +142,7 @@ function removeSymbol(symbol) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  loadCurrentUser();
+  // loadCurrentUser();
   refreshWatchlist();
 
   document.getElementById('addSymbolBtn').addEventListener('click', async () => {
