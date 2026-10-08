@@ -10,6 +10,7 @@
   <title>LadaStocks - Charts</title>
   <link rel="stylesheet" href="charts.css" />
   <!-- Import Chart.js -->
+  <script src="../shared/config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -38,38 +39,58 @@
   <section class="content">
     <h1>Charts</h1>
     <hr>
-    
-    <!-- 1. Search Bar -->
-    <div class="search-bar-wrapper" style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center;">
-      <input type="text" id="symbolInput" class="search-input" placeholder="Enter stock ticker (e.g. AAPL, TSLA)..." style="padding: 10px; border-radius: 50px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.2); color: white; width: 300px;" />
-      <button class="search-btn" id="searchBtn" onclick="searchStock()" style="padding: 10px 20px; border-radius: 50px; background: #FFC349; color: #0a1f44; border: none; font-weight: bold; cursor: pointer;">Search</button>
-      <span id="statusMsg" class="status-msg" style="color: #ccc; font-size: 14px;"></span>
-    </div>
+      <div class="main-chart">
+  <h2>Stock Name</h2>
 
-    <!-- 2. MAIN CHART WIDGET -->
-    <div class="main-chart">
-      
-      <!-- LEFT COLUMN: Title -->
-      <h2 id="stockTitle" style="grid-column: 1; grid-row: 1;">Search a stock to view its chart</h2>
+  <div class="chart-toolbar">
+  <div class="search-bar">
+    <input type="text" class="search-input" id="stockSearch" placeholder="Search stocks...">
+    <button class="search-btn" type="submit">
+      <img src="../../Images/SVG/search.svg" class="search-icon" alt="Search">
+    </button>
+  </div>
 
-      <!-- LEFT COLUMN: The Chart -->
-      <!-- By setting grid-column: 1, it stays OUT of the white box! -->
-      <div style="grid-column: 1; grid-row: 2 / span 2; position: relative; height: 100%; min-height: 400px; width: 100%;">
-        <canvas id="customStockChart"></canvas>
-      </div>
+  <div class="chart-tools">
+  <button class="tool-btn" data-mode="pan" title="Pan">
+    <img src="../../Images/SVG/hand.svg" class="tool-icon" alt="Pan">
+  </button>
+  <button class="tool-btn" data-mode="zoom" title="Zoom">
+    <img src="../../Images/SVG/zoom.svg" class="tool-icon" alt="Zoom">
+  </button>
+  <button class="tool-btn" data-mode="drawline" title="Draw line">
+    <img src="../../Images/SVG/line.svg" class="tool-icon" alt="Draw line">
+  </button>
+  <button class="tool-btn" data-mode="drawrect" title="Draw rectangle">
+    <img src="../../Images/SVG/rectangle.svg" class="tool-icon" alt="Draw rectangle">
+  </button>
+  <button class="tool-btn" data-mode="drawcircle" title="Draw circle">
+    <img src="../../Images/SVG/circle.svg" class="tool-icon" alt="Draw circle">
+  </button>
+  <button class="tool-btn" id="toolAnnotate" title="Add annotation">
+    <img src="../../Images/SVG/annotation.svg" class="tool-icon" alt="Add annotation">
+  </button>
+  <button class="tool-btn" data-mode="eraseshape" title="Erase shape">
+    <img src="../../Images/SVG/erase.svg" class="tool-icon" alt="Erase shape">
+  </button>
+  <button class="tool-btn" id="toolReset" title="Reset view">
+    <img src="../../Images/SVG/reset.svg" class="tool-icon" alt="Reset view">
+  </button>
+</div>
+</div>
 
-      <!-- RIGHT COLUMN: The White Box -->
-      <div class="chart-box">
-         <!-- This remains your white box sidebar. You can leave it empty or put stock stats here later! -->
-      </div>
+  <div class="chart-box" id="candleChart"></div>
 
-      <!-- RIGHT COLUMN: The Buttons -->
-      <div class="chart-actions">
-        <button class="btn-watchlist">Add to watchlist</button>
-        <button class="btn-alert">Set price alert</button>
-      </div>
+  <div class="details-panel" id="detailsPanel">
+    <p class="details-empty">Select a stock to see details.</p>
+  </div>
 
-    </div>
+  <div class="chart-actions">
+    <button class="btn-watchlist">Add to watchlist</button>
+    <button class="btn-alert">Set price alert</button>
+  </div>
+</div>
+
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   </section>
 
   <!-- Twelve Data Script -->

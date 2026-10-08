@@ -8,7 +8,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LadaStocks</title>
-  <link rel="stylesheet" href="transactions.css " />
+  <link rel="stylesheet" href="transactions.css "/>
+  <script src="../shared/config.js"></script>
   <script src="transactions.js" defer></script>
 </head>
 <body>
@@ -33,9 +34,32 @@
       </a>
     </div>
   </header>
-  <section class="content">
-    <h1>Transactions</h1>
-    <hr>
+ <section class="content">
+  <h1>Transactions</h1>
+  <hr>
+    <div class="transactions">
+      <div class="transactions-panel">
+        <h2>Transaction History</h2>
+        <div class="table-wrap">
+          <table class="transactions-table">
+            <thead>
+              <tr>
+                <th>Trade Type</th>
+                <th>Ticker</th>
+                <th>Shares / $ Value</th>
+                <th>Limit Price</th>
+                <th>Current Price</th>
+                <th>Trade Entered</th>
+                <th>Confirmation</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody id="transactionsBody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </div>
   </section>
 </body>
 </html>
