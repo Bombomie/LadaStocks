@@ -97,7 +97,7 @@ function renderPagination() {
 }
 
 async function init() {
-  loadCurrentUser();
+  // loadCurrentUser();
   try {
     transactions = await fetchTransactions();
 
