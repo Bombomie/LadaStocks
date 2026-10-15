@@ -28,7 +28,7 @@ async function loadCurrentUser() {
   }
 }
 
-loadCurrentUser();
+// loadCurrentUser();
 
 // ---- Chart setup ----
 
