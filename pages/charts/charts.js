@@ -45,7 +45,8 @@ let debounceTimer;
 // Fetch and render the candlestick chart
 async function loadCandles(symbol) {
   try {
-    const response = await fetch(`/api/stocks/${symbol}/candles`, {
+    // Pass the interval and outputsize to the backend query
+    const response = await fetch(`/api/stocks/candles/${symbol}?interval=${currentInterval}&outputsize=${currentOutputsize}`, {
       method: 'GET',
       credentials: 'include',
       headers: { Accept: 'application/json' },
@@ -180,6 +181,42 @@ function renderDetails(data, symbol) {
   `;
 }
 
+function renderDetails(data, symbol) {
+  const name = data.name || symbol;
+  const price = data.currentPrice ? data.currentPrice.toFixed(2) : 'N/A';
+  const high = data.highOfDay ? data.highOfDay.toFixed(2) : 'N/A';
+  const low = data.lowOfDay ? data.lowOfDay.toFixed(2) : 'N/A';
+  
+  const change = data.change ? parseFloat(data.change) : 0;
+  const isUp = change >= 0;
+  const changeColor = isUp ? '#4ade80' : '#f87171'; 
+  const changeSymbol = isUp ? '▲' : '▼';
+  const changeText = isUp ? `+${change.toFixed(2)}` : `${change.toFixed(2)}`;
+
+  detailsPanel.innerHTML = `
+    <div style="text-align: left; width: 100%; color: #0a1f44; font-family: 'Lexend Deca', sans-serif; box-sizing: border-box;">
+      <h2 style="margin: 0 0 5px 0; font-size: 24px; color: #0a1f44; word-wrap: break-word;">${name}</h2>
+      <p style="margin: 0 0 20px 0; font-size: 14px; color: rgba(10, 31, 68, 0.6); text-transform: uppercase; letter-spacing: 1px;">${symbol}</p>
+      
+      <div style="margin-bottom: 20px;">
+        <span style="font-size: 36px; font-weight: bold; color: #0a1f44;">$${price}</span>
+        <span style="font-size: 16px; font-weight: bold; color: ${changeColor}; margin-left: 10px;">
+          ${changeSymbol} ${changeText}%
+        </span>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid rgba(10, 31, 68, 0.1);">
+        <span style="color: rgba(10, 31, 68, 0.6);">Day High</span>
+        <span style="font-weight: bold;">$${high}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; padding-bottom: 10px;">
+        <span style="color: rgba(10, 31, 68, 0.6);">Day Low</span>
+        <span style="font-weight: bold;">$${low}</span>
+      </div>
+    </div>
+  `;
+}
+
 function setupToolbar() {
   document.querySelectorAll('.tool-btn[data-mode]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -222,6 +259,90 @@ function handleSearch() {
     loadCandles(currentSymbol);
     loadStockQuote(currentSymbol); // Load details panel data
   }
+}
+
+// Listen for typing in the search bar for autocomplete
+searchInput.addEventListener('input', () => {
+  clearTimeout(debounceTimer);
+  const query = searchInput.value.trim();
+
+  if (query.length === 0) {
+    suggestionsBox.style.display = 'none';
+    return;
+  }
+
+  // Debounce: wait 300ms after the user stops typing to make the API call
+  debounceTimer = setTimeout(async () => {
+    try {
+      const response = await fetch(`/api/stocks/search/${query}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+      });
+      const result = await response.json();
+
+      if (result.success && result.data.length > 0) {
+        suggestionsBox.innerHTML = result.data.map(stock => `
+          <div class="suggestion-item" data-symbol="${stock.symbol}">
+            <span class="suggestion-symbol">${stock.symbol}</span>
+            <span class="suggestion-name">${stock.name} (${stock.exchange})</span>
+          </div>
+        `).join('');
+        
+        suggestionsBox.style.display = 'block';
+
+        document.querySelectorAll('.suggestion-item').forEach(item => {
+          item.addEventListener('click', () => {
+            searchInput.value = item.dataset.symbol;
+            suggestionsBox.style.display = 'none';
+            handleSearch(); 
+          });
+        });
+      } else {
+        suggestionsBox.innerHTML = `<div class="suggestion-item"><span class="suggestion-name">No stocks found for "${query}"</span></div>`;
+        suggestionsBox.style.display = 'block';
+      }
+    } catch (error) {
+      console.error('Autocomplete error:', error);
+    }
+  }, 300);
 });
 
+// Hide suggestions if the user clicks outside the search bar
+document.addEventListener('click', (e) => {
+  if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
+    suggestionsBox.style.display = 'none';
+  }
+});
+
+document.querySelector('.search-btn')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  handleSearch();
+});
+
+searchInput?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    handleSearch();
+  }
+});
+
+// ---- Interval Button Wiring ----
+document.querySelectorAll('.interval-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    // Remove active class from all buttons
+    document.querySelectorAll('.interval-btn').forEach(b => b.classList.remove('active'));
+    // Add active to clicked button
+    btn.classList.add('active');
+    
+    // Update variables and reload chart
+    currentInterval = btn.dataset.interval;
+    currentOutputsize = btn.dataset.outputsize;
+    
+    loadCandles(currentSymbol);
+  });
+});
+
+// ---- Initial Load ----
 loadCandles(currentSymbol);
+loadStockQuote(currentSymbol);
