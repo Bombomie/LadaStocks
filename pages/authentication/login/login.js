@@ -2,6 +2,13 @@ const API_BASE_URL = 'https://ladastocks-api-server.onrender.com';
 
 const loginForm = document.getElementById('loginForm');
 
+(async function redirectIfLoggedIn() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/auth/me`, { credentials: 'include' });
+    if (res.ok) window.location.href = '../../dashboard/dashboard.html';
+  } catch { /* stay on login page */ }
+})();
+
 function showAlert(message) {
   const alertBox = document.createElement('div');
   alertBox.className = 'custom-alert';
