@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://ladastocks-api-server.onrender.com';
+const API_BASE_URL = 'http://localhost:20269';
 
 document.getElementById('birthDate').value = '';
 const registerForm = document.getElementById('registerForm');
