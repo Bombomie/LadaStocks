@@ -38,24 +38,34 @@
     <hr>
     <div class="lower-grid">
  
-      <div class="watchlist-panel">
+            <div class="watchlist-panel">
         <h2>Stock Watchlists</h2>
-        <div class="table-wrap">
+
+        <div class="add-stock-bar">
+          <div class="search-bar" style="position: relative;">
+            <input type="text" class="search-input" id="stockSearch" placeholder="Add a symbol (e.g. NVDA)" autocomplete="off">
+            <button class="search-btn" id="searchBtn" type="submit">
+              <img src="../../Images/SVG/search.svg" class="search-icon" alt="Search">
+            </button>
+            <div id="suggestions" class="suggestions-list"></div>
+          </div>
+        </div>
+
+                <div class="table-wrap">
           <table class="watchlist-table">
             <thead>
               <tr>
                 <th>Symbol</th>
                 <th>Company</th>
                 <th>Price</th>
+                <th>Target</th>
                 <th>Change</th>
                 <th></th>
               </tr>
             </thead>
-            <tbody id="watchlistBody">
-            </tbody>
+            <tbody id="watchlistBody"></tbody>
           </table>
         </div>
-        <button class="add-symbol-btn" id="addSymbolBtn" type="button">Add Stock</button>
       </div>
  
       <div class="details-panel">
