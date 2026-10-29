@@ -84,7 +84,10 @@ router.get('/with-quotes', requireAuth, async (req, res) => {
 
     const result = data.map(item => {
       const q = quoteMap.get(item.stocks.symbol);
-      const currentPrice = parseFloat(q?.close || q?.current_price || 0);
+
+      // Use the field names returned by your getRealTimeQuote function
+      // (matching the structure used in charts.js)
+      const currentPrice = parseFloat(q?.currentPrice || q?.close || q?.price || 0);
       const targetPrice = item.target_price ? parseFloat(item.target_price) : null;
 
       // Calculate change based on target price if set, otherwise daily change
@@ -94,7 +97,7 @@ router.get('/with-quotes', requireAuth, async (req, res) => {
         changePct = ((currentPrice - targetPrice) / targetPrice) * 100;
         changeType = 'target';
       } else {
-        changePct = parseFloat(q?.percent_change) || 0;
+        changePct = parseFloat(q?.change || q?.percent_change || 0);
         changeType = 'daily';
       }
 
@@ -108,11 +111,11 @@ router.get('/with-quotes', requireAuth, async (req, res) => {
         target_price: targetPrice,
         changePct,
         changeType,
-        dailyChangePct: parseFloat(q?.percent_change) || 0,
-        open: parseFloat(q?.open) || 0,
-        high: parseFloat(q?.high) || 0,
-        low: parseFloat(q?.low) || 0,
-        volume: q?.volume ? Number(q.volume).toLocaleString('en-US') : '—',
+        dailyChangePct: parseFloat(q?.change || q?.percent_change || 0),
+        open: parseFloat(q?.open || q?.openPrice || 0),
+        high: parseFloat(q?.highOfDay || q?.high || 0),
+        low: parseFloat(q?.lowOfDay || q?.low || 0),
+        volume: (q?.volume || q?.volumes) ? Number(q?.volume || q?.volumes).toLocaleString('en-US') : '—',
       };
     });
 
