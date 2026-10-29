@@ -96,9 +96,40 @@
           <p class="details-empty">Select a stock to see details.</p>
         </div>
 
-        <div class="chart-actions">
-          <button class="btn-watchlist">Add to watchlist</button>
-          <button class="btn-alert">Set price alert</button>
+                <div class="chart-actions">
+          <!-- Quick actions -->
+          <div class="quick-actions">
+            <button class="btn-watchlist" id="btnWatchlist">+ Watchlist</button>
+            <button class="btn-alert" id="btnAlert">+ Alert</button>
+          </div>
+
+          <!-- Trade panel -->
+          <div class="trade-panel">
+            <div class="trade-stats">
+              <div class="trade-stat">
+                <span class="trade-label">Cash</span>
+                <span class="trade-value" id="tradeCashBalance">$0.00</span>
+              </div>
+              <div class="trade-stat">
+                <span class="trade-label">Position</span>
+                <span class="trade-value" id="tradePosition">0 sh</span>
+              </div>
+            </div>
+
+            <input type="number" id="tradeQuantity" placeholder="Quantity" min="1" step="1" />
+
+            <div class="trade-estimate">
+              <span class="trade-label">Est. Total</span>
+              <span class="trade-value" id="tradeEstTotal">$0.00</span>
+            </div>
+
+            <div class="trade-buttons">
+              <button class="btn-buy" id="btnBuy" type="button">Buy</button>
+              <button class="btn-sell" id="btnSell" type="button">Sell</button>
+            </div>
+
+            <p class="trade-message" id="tradeMessage"></p>
+          </div>
         </div>
       </div>
   </section>

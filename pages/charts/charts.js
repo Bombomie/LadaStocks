@@ -346,3 +346,254 @@ document.querySelectorAll('.interval-btn').forEach(btn => {
 // ---- Initial Load ----
 loadCandles(currentSymbol);
 loadStockQuote(currentSymbol);
+
+
+// === Trading panel logic ===
+
+const tradeCashEl = document.getElementById('tradeCashBalance');
+const tradePosEl = document.getElementById('tradePosition');
+const tradeQtyInput = document.getElementById('tradeQuantity');
+const tradeEstTotalEl = document.getElementById('tradeEstTotal');
+const tradeMsgEl = document.getElementById('tradeMessage');
+const btnBuy = document.getElementById('btnBuy');
+const btnSell = document.getElementById('btnSell');
+
+const fmtUSD = (n) => (n ?? 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+
+function setTradeMessage(text, type = '') {
+  tradeMsgEl.textContent = text || '';
+  tradeMsgEl.className = 'trade-message' + (type ? ` ${type}` : '');
+}
+
+// Fetch the user's cash balance and current position for the active symbol
+async function loadTradeContext(symbol) {
+  try {
+    setTradeMessage('Loading...', '');
+
+    const [balRes, posRes] = await Promise.all([
+      fetch('/api/trading/balance', { credentials: 'include' }),
+      fetch(`/api/trading/position/${symbol}`, { credentials: 'include' }),
+    ]);
+
+    if (balRes.ok) {
+      const { balance } = await balRes.json();
+      tradeCashEl.textContent = fmtUSD(balance);
+    }
+
+    if (posRes.ok) {
+      const { quantity, avg_buy_price } = await posRes.json();
+      tradePosEl.textContent = `${quantity} sh`;
+      if (quantity > 0) {
+        tradePosEl.title = `Avg buy: $${avg_buy_price.toFixed(2)}`;
+      } else {
+        tradePosEl.title = '';
+      }
+    }
+
+    setTradeMessage('', '');
+    updateEstimate();
+  } catch (err) {
+    console.error('Trade context error:', err);
+    setTradeMessage('Could not load balance.', 'error');
+  }
+}
+
+// Update the estimated total when quantity changes
+function updateEstimate() {
+  const qty = parseInt(tradeQtyInput.value) || 0;
+  // We use the price from the details panel (last fetched quote)
+  const price = window.__lastQuotePrice || 0;
+  const total = qty * price;
+  tradeEstTotalEl.textContent = fmtUSD(total);
+}
+
+tradeQtyInput?.addEventListener('input', updateEstimate);
+
+// Capture the latest price whenever the details panel renders
+const _originalRenderDetails = renderDetails;
+renderDetails = function (data, symbol) {
+  _originalRenderDetails(data, symbol);
+  const price = parseFloat(data?.close || data?.currentPrice || data?.price) || 0;
+  window.__lastQuotePrice = price;
+  updateEstimate();
+};
+
+// Buy handler
+btnBuy?.addEventListener('click', async () => {
+  const qty = parseInt(tradeQtyInput.value);
+  if (!qty || qty <= 0) {
+    setTradeMessage('Enter a valid quantity.', 'error');
+    return;
+  }
+
+  btnBuy.disabled = true;
+  btnSell.disabled = true;
+  setTradeMessage('Processing buy...', '');
+
+  try {
+    const res = await fetch('/api/trading/buy', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol: currentSymbol, quantity: qty }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      setTradeMessage(data.message || 'Buy failed.', 'error');
+      return;
+    }
+
+    setTradeMessage(data.message, 'success');
+    tradeQtyInput.value = '';
+    await loadTradeContext(currentSymbol);
+  } catch (err) {
+    console.error('Buy error:', err);
+    setTradeMessage('Network error during buy.', 'error');
+  } finally {
+    btnBuy.disabled = false;
+    btnSell.disabled = false;
+  }
+});
+
+// Sell handler
+btnSell?.addEventListener('click', async () => {
+  const qty = parseInt(tradeQtyInput.value);
+  if (!qty || qty <= 0) {
+    setTradeMessage('Enter a valid quantity.', 'error');
+    return;
+  }
+
+  btnBuy.disabled = true;
+  btnSell.disabled = true;
+  setTradeMessage('Processing sell...', '');
+
+  try {
+    const res = await fetch('/api/trading/sell', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol: currentSymbol, quantity: qty }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      setTradeMessage(data.message || 'Sell failed.', 'error');
+      return;
+    }
+
+    setTradeMessage(data.message, 'success');
+    tradeQtyInput.value = '';
+    await loadTradeContext(currentSymbol);
+  } catch (err) {
+    console.error('Sell error:', err);
+    setTradeMessage('Network error during sell.', 'error');
+  } finally {
+    btnBuy.disabled = false;
+    btnSell.disabled = false;
+  }
+});
+
+// Wire into existing symbol changes
+const _originalHandleSearch = handleSearch;
+handleSearch = function () {
+  _originalHandleSearch();
+  loadTradeContext(currentSymbol);
+};
+
+// Initial load
+loadTradeContext(currentSymbol);
+
+
+// === Watchlist button logic ===
+
+const btnWatchlist = document.getElementById('btnWatchlist');
+
+function showToast(message, type = 'info') {
+  const existing = document.querySelector('.watchlist-toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.className = `watchlist-toast ${type}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+
+  requestAnimationFrame(() => toast.classList.add('show'));
+
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+// Check if the current symbol is already in the user's watchlist
+// and update the button label accordingly.
+async function syncWatchlistButtonState(symbol) {
+  if (!btnWatchlist) return;
+  try {
+    const res = await fetch('/api/watchlist', { credentials: 'include' });
+    if (!res.ok) return;
+    const items = await res.json();
+
+    const isTracking = items.some(
+      (item) => item.stocks?.symbol === symbol
+    );
+
+    if (isTracking) {
+      btnWatchlist.textContent = '✓ In Watchlist';
+      btnWatchlist.classList.add('is-tracking');
+    } else {
+      btnWatchlist.textContent = '+ Watchlist';
+      btnWatchlist.classList.remove('is-tracking');
+    }
+  } catch (err) {
+    console.error('Watchlist state check failed:', err);
+  }
+}
+
+// Add the current symbol to the watchlist
+async function addToWatchlist(symbol) {
+  try {
+    const res = await fetch('/api/watchlist', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol }),
+    });
+    const data = await res.json();
+
+    if (res.status === 409) {
+      // Already in watchlist — silently update UI
+      showToast(`${symbol} is already in your watchlist.`, 'info');
+      btnWatchlist.textContent = '✓ In Watchlist';
+      btnWatchlist.classList.add('is-tracking');
+      return;
+    }
+
+    if (!res.ok) {
+      throw new Error(data.message || 'Could not add to watchlist.');
+    }
+
+    showToast(`Added ${symbol} to watchlist.`, 'success');
+    btnWatchlist.textContent = '✓ In Watchlist';
+    btnWatchlist.classList.add('is-tracking');
+  } catch (err) {
+    console.error('Add to watchlist error:', err);
+    showToast(err.message, 'error');
+  }
+}
+
+btnWatchlist?.addEventListener('click', () => {
+  if (!currentSymbol) return;
+  addToWatchlist(currentSymbol);
+});
+
+// Hook into symbol changes so the button state stays in sync
+const _originalHandleSearchForWatchlist = handleSearch;
+handleSearch = function () {
+  _originalHandleSearchForWatchlist();
+  syncWatchlistButtonState(currentSymbol);
+};
+
+// Initial sync on page load
+syncWatchlistButtonState(currentSymbol);
