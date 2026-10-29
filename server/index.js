@@ -5,9 +5,11 @@ import helmet from 'helmet';
 import path from 'path';
 import authRouter from './routes/auth.js';
 import stocksRouter from './routes/stocks.js';
-import walletRouter from './routes/wallet.js'; // <-- Add this
-import transactionsRouter from './routes/transactions.js'; // <-- Add this
-import portfolioRouter from './routes/portfolio.js'; // <-- Add this
+import walletRouter from './routes/wallet.js';
+import transactionsRouter from './routes/transactions.js';
+import portfolioRouter from './routes/portfolio.js';
+import tradingRouter from './routes/trading.js';
+import watchlistRouter from './routes/watchlist.js'; // <-- Add this
 import { env } from './config/env.js';
 
 const app = express();
@@ -24,14 +26,14 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/stocks', stocksRouter);
-app.use('/api/wallet', walletRouter); // <-- Mount wallet
-app.use('/api/transactions', transactionsRouter); // <-- Mount transactions
-app.use('/api/portfolio', portfolioRouter); // <-- Mount portfolio
+app.use('/api/wallet', walletRouter);
+app.use('/api/transactions', transactionsRouter);
+app.use('/api/portfolio', portfolioRouter);
+app.use('/api/trading', tradingRouter);
+app.use('/api/watchlist', watchlistRouter); // <-- Mount watchlist
 
-// Serve the existing HTML/CSS/JS project from the same Express server.
 app.use(express.static(env.projectRoot));
 
-// This must remain at the bottom to catch unmatched /api routes
 app.use('/api', (_req, res) => {
   res.status(404).json({ message: 'API endpoint is not found.' });
 });
