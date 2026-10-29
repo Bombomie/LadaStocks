@@ -182,4 +182,94 @@ router.post('/logout', async (req, res) => {
   return res.json({ message: 'Logged out.' });
 });
 
+// Update profile details (username, birth date)
+router.patch('/me', requireAuth, async (req, res) => {
+  try {
+    const { supabase, user } = req.auth;
+    const updates = {};
+
+    if (req.body.username !== undefined) {
+      const username = String(req.body.username).trim();
+      if (!username || username.length > 30) {
+        return res.status(400).json({ message: 'Username must be 1–30 characters.' });
+      }
+      updates.username = username;
+    }
+
+    if (req.body.birthDate !== undefined) {
+      const birthDate = String(req.body.birthDate).trim();
+      if (!isIsoDate(birthDate) || new Date(birthDate) > new Date()) {
+        return res.status(400).json({ message: 'Please enter a valid birth date.' });
+      }
+      updates.birth_date = birthDate;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: 'Nothing to update.' });
+    }
+
+    const { data: profile, error } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('user_id', user.id)
+      .select('user_id, username, email, birth_date, created_at, last_login')
+      .single();
+
+    if (error) {
+      console.error('Profile update error:', error.message);
+      return res.status(400).json({ message: 'Could not update profile.' });
+    }
+
+    return res.json({ message: 'Profile updated.', user: profile });
+  } catch (error) {
+    console.error('Update profile route error:', error);
+    return res.status(500).json({ message: 'Could not update profile.' });
+  }
+});
+
+// Change password
+router.post('/change-password', requireAuth, async (req, res) => {
+  try {
+    const { user } = req.auth;
+    const currentPassword = String(req.body.currentPassword || '');
+    const newPassword = String(req.body.newPassword || '');
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Please fill out all fields.' });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: 'New password must be at least 8 characters long.' });
+    }
+    if (newPassword === currentPassword) {
+      return res.status(400).json({ message: 'New password must be different from the current one.' });
+    }
+
+    // Verify the current password with a separate, fresh client
+    const verifier = createSupabaseClient();
+    const { data, error: verifyError } = await verifier.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
+
+    // IMPORTANT: use 400, not 401. The frontend's apiFetch treats 401 as
+    // "session expired" and redirects to the login page.
+    if (verifyError || !data.session) {
+      return res.status(400).json({ message: 'Current password is incorrect.' });
+    }
+
+    const { error: updateError } = await verifier.auth.updateUser({ password: newPassword });
+    if (updateError) {
+      return res.status(400).json({ message: updateError.message || 'Could not change password.' });
+    }
+
+    // Use the fresh session so the cookies stay valid
+    setAuthCookies(res, data.session);
+
+    return res.json({ message: 'Password updated.' });
+  } catch (error) {
+    console.error('Change password route error:', error);
+    return res.status(500).json({ message: 'Could not change password.' });
+  }
+});
+
 export default router;
