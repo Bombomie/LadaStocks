@@ -328,3 +328,32 @@ hr {
   .lower-grid { grid-template-columns: 1fr; }
   .nav-links { display: none; }
 }
+
+/* === View on Charts Link === */
+.view-chart-link {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 10px 16px;
+  background: var(--accent-brand);
+  color: #0a1730;
+  text-decoration: none;
+  border-radius: 50px;
+  font-family: 'Lexend Deca', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  transition: opacity 0.2s ease;
+}
+
+.view-chart-link:hover { opacity: 0.85; }
+
+/* === Chart Panel === */
+.chart-panel {
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  font-family: 'Lexend Deca', sans-serif;
+  margin-top: 24px;
+}

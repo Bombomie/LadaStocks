@@ -198,3 +198,36 @@ hr {
   .summary-strip { grid-template-columns: repeat(2, 1fr); }
   .lower-grid { grid-template-columns: 1fr; }
 }
+
+/* Add this to your existing wallet.css */
+
+.table-wrap.scrollable {
+  max-height: 350px; /* Adjust height as needed */
+  overflow-y: auto;
+  display: block;
+}
+
+.table-wrap.scrollable::-webkit-scrollbar {
+  width: 6px;
+}
+
+.table-wrap.scrollable::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+.table-wrap.scrollable::-webkit-scrollbar-thumb {
+  background: var(--gold, #FFC349);
+  border-radius: 10px;
+}
+
+/* Keep the header sticky so it stays visible when scrolling */
+.watchlist-table thead th {
+  position: sticky;
+  top: 0;
+  background-color: #0a1f44;
+  z-index: 1;
+}
+
+.change.up { color: var(--accent-up); font-weight: 600; }
+.change.down { color: var(--accent-down); font-weight: 600; }

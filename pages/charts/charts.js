@@ -1,40 +1,120 @@
-loadCurrentUser();
-
-// ---- Chart setup ----
-
-const chartDiv = document.getElementById('candleChart');
-let currentSymbol = 'AAPL'; // default until search picks something else
-
-async function loadCandles(symbol) {
+// charts.js
+async function loadCurrentUser() {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/stocks/${encodeURIComponent(symbol)}/candles`, {
-    method: 'GET',
-    credentials: 'include',
-    headers: { Accept: 'application/json' },
-  });
+    const response = await fetch('/api/auth/me', {
+      method: 'GET',
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    });
+
+    if (response.status === 401) {
+      window.location.replace('../authentication/login/login.html');
+      return;
+    }
 
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.message || 'Could not load chart data.');
+      throw new Error(data.message || 'Could not load user session.');
     }
 
-    // expects data shaped like: { dates: [...], open: [...], high: [...], low: [...], close: [...] }
-    renderChart(data);
+    const usernameElement = document.querySelector('.username');
+    if (usernameElement) {
+      usernameElement.textContent = data.user.username || 'User';
+    }
+  } catch (error) {
+    console.error('Dashboard authentication error:', error);
+    window.location.replace('../authentication/login/login.html');
+  }
+}
+
+// loadCurrentUser();
+
+// ---- Chart setup ----
+
+const chartDiv = document.getElementById('candleChart');
+const detailsPanel = document.getElementById('detailsPanel');
+const searchInput = document.getElementById('stockSearch');
+const suggestionsBox = document.getElementById('suggestions');
+
+let currentSymbol = 'AAPL'; // default until search picks something else
+let currentInterval = '1day'; // default interval
+let currentOutputsize = 90;  // default data points
+let debounceTimer;
+
+// Fetch and render the candlestick chart
+async function loadCandles(symbol) {
+  try {
+    // Pass the interval and outputsize to the backend query
+    const response = await fetch(`/api/stocks/candles/${symbol}?interval=${currentInterval}&outputsize=${currentOutputsize}`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'Could not load chart data.');
+    }
+
+    const chartData = result.data.map(item => ({
+      time: item.time,
+      open: parseFloat(item.open),
+      high: parseFloat(item.high),
+      low: parseFloat(item.low),
+      close: parseFloat(item.close)
+    }));
+
+    renderChart(chartData);
   } catch (error) {
     console.error('Chart data error:', error);
   }
 }
 
-function renderChart({ dates, open, high, low, close }) {
+// Fetch and render the details panel data
+async function loadStockQuote(symbol) {
+  try {
+    detailsPanel.innerHTML = `<p class="details-empty">Loading ${symbol} details...</p>`;
+
+    const response = await fetch(`/api/stocks/quote/${symbol}`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'Could not load quote data.');
+    }
+
+    renderDetails(result.data, symbol);
+  } catch (error) {
+    console.error('Quote data error:', error);
+    detailsPanel.innerHTML = `<p class="details-empty">Could not load details for ${symbol}.</p>`;
+  }
+}
+
+function renderChart(chartData) {
   const trace = {
     type: 'candlestick',
-    x: dates,
-    open,
-    high,
-    low,
-    close,
+    x: chartData.map(d => d.time),
+    open: chartData.map(d => d.open),
+    high: chartData.map(d => d.high),
+    low: chartData.map(d => d.low),
+    close: chartData.map(d => d.close),
+    increasing: { line: { color: '#4ade80' }, fillcolor: '#4ade80' }, 
+    decreasing: { line: { color: '#f87171' }, fillcolor: '#f87171' }, 
   };
+
+  // Format the X-axis tooltip nicely depending on the interval
+  let tickFormat;
+  if (currentInterval === '1day' || currentInterval === '1week') {
+    tickFormat = '%b %d, %Y'; // e.g., Oct 25, 2023
+  } else {
+    tickFormat = '%b %d, %H:%M'; // e.g., Oct 25, 14:30
+  }
 
   const layout = {
     dragmode: 'zoom',
@@ -42,18 +122,99 @@ function renderChart({ dates, open, high, low, close }) {
     annotations: [],
     paper_bgcolor: 'rgba(0,0,0,0)',
     plot_bgcolor: 'rgba(0,0,0,0)',
-    font: { color: '#0a1f44' },
+    font: { color: '#ffffff' },
     margin: { t: 20, r: 20, b: 40, l: 50 },
-    xaxis: { rangeslider: { visible: false } },
+    xaxis: {
+      rangeslider: { visible: false },
+      gridcolor: 'rgba(255, 255, 255, 0.08)',
+      linecolor: 'rgba(255, 255, 255, 0.2)',
+      tickformat: tickFormat 
+    },
+    yaxis: {
+      gridcolor: 'rgba(255, 255, 255, 0.08)',
+      linecolor: 'rgba(255, 255, 255, 0.2)'
+    }
   };
 
   const config = {
-    displayModeBar: false, // custom toolbar replaces Plotly's built-in one
+    displayModeBar: false,
     scrollZoom: true,
     responsive: true,
   };
 
   Plotly.newPlot(chartDiv, [trace], layout, config);
+}
+
+function renderDetails(data, symbol) {
+  const name = data.name || symbol;
+  const price = data.currentPrice ? data.currentPrice.toFixed(2) : 'N/A';
+  const high = data.highOfDay ? data.highOfDay.toFixed(2) : 'N/A';
+  const low = data.lowOfDay ? data.lowOfDay.toFixed(2) : 'N/A';
+  
+  const change = data.change ? parseFloat(data.change) : 0;
+  const isUp = change >= 0;
+  const changeColor = isUp ? '#4ade80' : '#f87171'; 
+  const changeSymbol = isUp ? '▲' : '▼';
+  const changeText = isUp ? `+${change.toFixed(2)}` : `${change.toFixed(2)}`;
+
+  detailsPanel.innerHTML = `
+    <div style="text-align: left; width: 100%; color: #0a1f44; font-family: 'Lexend Deca', sans-serif; box-sizing: border-box;">
+      <h2 style="margin: 0 0 5px 0; font-size: 24px; color: #0a1f44; word-wrap: break-word;">${name}</h2>
+      <p style="margin: 0 0 20px 0; font-size: 14px; color: rgba(10, 31, 68, 0.6); text-transform: uppercase; letter-spacing: 1px;">${symbol}</p>
+      
+      <div style="margin-bottom: 20px;">
+        <span style="font-size: 36px; font-weight: bold; color: #0a1f44;">$${price}</span>
+        <span style="font-size: 16px; font-weight: bold; color: ${changeColor}; margin-left: 10px;">
+          ${changeSymbol} ${changeText}%
+        </span>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid rgba(10, 31, 68, 0.1);">
+        <span style="color: rgba(10, 31, 68, 0.6);">Day High</span>
+        <span style="font-weight: bold;">$${high}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; padding-bottom: 10px;">
+        <span style="color: rgba(10, 31, 68, 0.6);">Day Low</span>
+        <span style="font-weight: bold;">$${low}</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderDetails(data, symbol) {
+  const name = data.name || symbol;
+  const price = data.currentPrice ? data.currentPrice.toFixed(2) : 'N/A';
+  const high = data.highOfDay ? data.highOfDay.toFixed(2) : 'N/A';
+  const low = data.lowOfDay ? data.lowOfDay.toFixed(2) : 'N/A';
+  
+  const change = data.change ? parseFloat(data.change) : 0;
+  const isUp = change >= 0;
+  const changeColor = isUp ? '#4ade80' : '#f87171'; 
+  const changeSymbol = isUp ? '▲' : '▼';
+  const changeText = isUp ? `+${change.toFixed(2)}` : `${change.toFixed(2)}`;
+
+  detailsPanel.innerHTML = `
+    <div style="text-align: left; width: 100%; color: #0a1f44; font-family: 'Lexend Deca', sans-serif; box-sizing: border-box;">
+      <h2 style="margin: 0 0 5px 0; font-size: 24px; color: #0a1f44; word-wrap: break-word;">${name}</h2>
+      <p style="margin: 0 0 20px 0; font-size: 14px; color: rgba(10, 31, 68, 0.6); text-transform: uppercase; letter-spacing: 1px;">${symbol}</p>
+      
+      <div style="margin-bottom: 20px;">
+        <span style="font-size: 36px; font-weight: bold; color: #0a1f44;">$${price}</span>
+        <span style="font-size: 16px; font-weight: bold; color: ${changeColor}; margin-left: 10px;">
+          ${changeSymbol} ${changeText}%
+        </span>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid rgba(10, 31, 68, 0.1);">
+        <span style="color: rgba(10, 31, 68, 0.6);">Day High</span>
+        <span style="font-weight: bold;">$${high}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; padding-bottom: 10px;">
+        <span style="color: rgba(10, 31, 68, 0.6);">Day Low</span>
+        <span style="font-weight: bold;">$${low}</span>
+      </div>
+    </div>
+  `;
 }
 
 function setupToolbar() {
@@ -89,17 +250,350 @@ function setupToolbar() {
   });
 }
 
-// ---- Search bar wiring ----
+// ---- Search & Autocomplete Wiring ----
 
-document.querySelector('.search-btn')?.addEventListener('click', (e) => {
-  e.preventDefault();
-  const query = document.getElementById('stockSearch').value.trim().toUpperCase();
+function handleSearch() {
+  const query = searchInput.value.trim().toUpperCase();
   if (query) {
     currentSymbol = query;
     loadCandles(currentSymbol);
+    loadStockQuote(currentSymbol); // Load details panel data
+  }
+}
+
+// Listen for typing in the search bar for autocomplete
+searchInput.addEventListener('input', () => {
+  clearTimeout(debounceTimer);
+  const query = searchInput.value.trim();
+
+  if (query.length === 0) {
+    suggestionsBox.style.display = 'none';
+    return;
+  }
+
+  // Debounce: wait 300ms after the user stops typing to make the API call
+  debounceTimer = setTimeout(async () => {
+    try {
+      const response = await fetch(`/api/stocks/search/${query}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+      });
+      const result = await response.json();
+
+      if (result.success && result.data.length > 0) {
+        suggestionsBox.innerHTML = result.data.map(stock => `
+          <div class="suggestion-item" data-symbol="${stock.symbol}">
+            <span class="suggestion-symbol">${stock.symbol}</span>
+            <span class="suggestion-name">${stock.name} (${stock.exchange})</span>
+          </div>
+        `).join('');
+        
+        suggestionsBox.style.display = 'block';
+
+        document.querySelectorAll('.suggestion-item').forEach(item => {
+          item.addEventListener('click', () => {
+            searchInput.value = item.dataset.symbol;
+            suggestionsBox.style.display = 'none';
+            handleSearch(); 
+          });
+        });
+      } else {
+        suggestionsBox.innerHTML = `<div class="suggestion-item"><span class="suggestion-name">No stocks found for "${query}"</span></div>`;
+        suggestionsBox.style.display = 'block';
+      }
+    } catch (error) {
+      console.error('Autocomplete error:', error);
+    }
+  }, 300);
+});
+
+// Hide suggestions if the user clicks outside the search bar
+document.addEventListener('click', (e) => {
+  if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
+    suggestionsBox.style.display = 'none';
   }
 });
 
-loadCandles(currentSymbol).then(() => {
-  if (chartDiv.on) setupToolbar();
+document.querySelector('.search-btn')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  handleSearch();
 });
+
+searchInput?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    handleSearch();
+  }
+});
+
+// ---- Interval Button Wiring ----
+document.querySelectorAll('.interval-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    // Remove active class from all buttons
+    document.querySelectorAll('.interval-btn').forEach(b => b.classList.remove('active'));
+    // Add active to clicked button
+    btn.classList.add('active');
+    
+    // Update variables and reload chart
+    currentInterval = btn.dataset.interval;
+    currentOutputsize = btn.dataset.outputsize;
+    
+    loadCandles(currentSymbol);
+  });
+});
+
+// ---- Initial Load ----
+loadCandles(currentSymbol);
+loadStockQuote(currentSymbol);
+
+
+// === Trading panel logic ===
+
+const tradeCashEl = document.getElementById('tradeCashBalance');
+const tradePosEl = document.getElementById('tradePosition');
+const tradeQtyInput = document.getElementById('tradeQuantity');
+const tradeEstTotalEl = document.getElementById('tradeEstTotal');
+const tradeMsgEl = document.getElementById('tradeMessage');
+const btnBuy = document.getElementById('btnBuy');
+const btnSell = document.getElementById('btnSell');
+
+const fmtUSD = (n) => (n ?? 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+
+function setTradeMessage(text, type = '') {
+  tradeMsgEl.textContent = text || '';
+  tradeMsgEl.className = 'trade-message' + (type ? ` ${type}` : '');
+}
+
+// Fetch the user's cash balance and current position for the active symbol
+async function loadTradeContext(symbol) {
+  try {
+    setTradeMessage('Loading...', '');
+
+    const [balRes, posRes] = await Promise.all([
+      fetch('/api/trading/balance', { credentials: 'include' }),
+      fetch(`/api/trading/position/${symbol}`, { credentials: 'include' }),
+    ]);
+
+    if (balRes.ok) {
+      const { balance } = await balRes.json();
+      tradeCashEl.textContent = fmtUSD(balance);
+    }
+
+    if (posRes.ok) {
+      const { quantity, avg_buy_price } = await posRes.json();
+      tradePosEl.textContent = `${quantity} sh`;
+      if (quantity > 0) {
+        tradePosEl.title = `Avg buy: $${avg_buy_price.toFixed(2)}`;
+      } else {
+        tradePosEl.title = '';
+      }
+    }
+
+    setTradeMessage('', '');
+    updateEstimate();
+  } catch (err) {
+    console.error('Trade context error:', err);
+    setTradeMessage('Could not load balance.', 'error');
+  }
+}
+
+// Update the estimated total when quantity changes
+function updateEstimate() {
+  const qty = parseInt(tradeQtyInput.value) || 0;
+  // We use the price from the details panel (last fetched quote)
+  const price = window.__lastQuotePrice || 0;
+  const total = qty * price;
+  tradeEstTotalEl.textContent = fmtUSD(total);
+}
+
+tradeQtyInput?.addEventListener('input', updateEstimate);
+
+// Capture the latest price whenever the details panel renders
+const _originalRenderDetails = renderDetails;
+renderDetails = function (data, symbol) {
+  _originalRenderDetails(data, symbol);
+  const price = parseFloat(data?.close || data?.currentPrice || data?.price) || 0;
+  window.__lastQuotePrice = price;
+  updateEstimate();
+};
+
+// Buy handler
+btnBuy?.addEventListener('click', async () => {
+  const qty = parseInt(tradeQtyInput.value);
+  if (!qty || qty <= 0) {
+    setTradeMessage('Enter a valid quantity.', 'error');
+    return;
+  }
+
+  btnBuy.disabled = true;
+  btnSell.disabled = true;
+  setTradeMessage('Processing buy...', '');
+
+  try {
+    const res = await fetch('/api/trading/buy', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol: currentSymbol, quantity: qty }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      setTradeMessage(data.message || 'Buy failed.', 'error');
+      return;
+    }
+
+    setTradeMessage(data.message, 'success');
+    tradeQtyInput.value = '';
+    await loadTradeContext(currentSymbol);
+  } catch (err) {
+    console.error('Buy error:', err);
+    setTradeMessage('Network error during buy.', 'error');
+  } finally {
+    btnBuy.disabled = false;
+    btnSell.disabled = false;
+  }
+});
+
+// Sell handler
+btnSell?.addEventListener('click', async () => {
+  const qty = parseInt(tradeQtyInput.value);
+  if (!qty || qty <= 0) {
+    setTradeMessage('Enter a valid quantity.', 'error');
+    return;
+  }
+
+  btnBuy.disabled = true;
+  btnSell.disabled = true;
+  setTradeMessage('Processing sell...', '');
+
+  try {
+    const res = await fetch('/api/trading/sell', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol: currentSymbol, quantity: qty }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      setTradeMessage(data.message || 'Sell failed.', 'error');
+      return;
+    }
+
+    setTradeMessage(data.message, 'success');
+    tradeQtyInput.value = '';
+    await loadTradeContext(currentSymbol);
+  } catch (err) {
+    console.error('Sell error:', err);
+    setTradeMessage('Network error during sell.', 'error');
+  } finally {
+    btnBuy.disabled = false;
+    btnSell.disabled = false;
+  }
+});
+
+// Wire into existing symbol changes
+const _originalHandleSearch = handleSearch;
+handleSearch = function () {
+  _originalHandleSearch();
+  loadTradeContext(currentSymbol);
+};
+
+// Initial load
+loadTradeContext(currentSymbol);
+
+
+// === Watchlist button logic ===
+
+const btnWatchlist = document.getElementById('btnWatchlist');
+
+function showToast(message, type = 'info') {
+  const existing = document.querySelector('.watchlist-toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.className = `watchlist-toast ${type}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+
+  requestAnimationFrame(() => toast.classList.add('show'));
+
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+// Check if the current symbol is already in the user's watchlist
+// and update the button label accordingly.
+async function syncWatchlistButtonState(symbol) {
+  if (!btnWatchlist) return;
+  try {
+    const res = await fetch('/api/watchlist', { credentials: 'include' });
+    if (!res.ok) return;
+    const items = await res.json();
+
+    const isTracking = items.some(
+      (item) => item.stocks?.symbol === symbol
+    );
+
+    if (isTracking) {
+      btnWatchlist.textContent = '✓ In Watchlist';
+      btnWatchlist.classList.add('is-tracking');
+    } else {
+      btnWatchlist.textContent = '+ Watchlist';
+      btnWatchlist.classList.remove('is-tracking');
+    }
+  } catch (err) {
+    console.error('Watchlist state check failed:', err);
+  }
+}
+
+// Add the current symbol to the watchlist
+async function addToWatchlist(symbol) {
+  try {
+    const res = await fetch('/api/watchlist', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol }),
+    });
+    const data = await res.json();
+
+    if (res.status === 409) {
+      // Already in watchlist — silently update UI
+      showToast(`${symbol} is already in your watchlist.`, 'info');
+      btnWatchlist.textContent = '✓ In Watchlist';
+      btnWatchlist.classList.add('is-tracking');
+      return;
+    }
+
+    if (!res.ok) {
+      throw new Error(data.message || 'Could not add to watchlist.');
+    }
+
+    showToast(`Added ${symbol} to watchlist.`, 'success');
+    btnWatchlist.textContent = '✓ In Watchlist';
+    btnWatchlist.classList.add('is-tracking');
+  } catch (err) {
+    console.error('Add to watchlist error:', err);
+    showToast(err.message, 'error');
+  }
+}
+
+btnWatchlist?.addEventListener('click', () => {
+  if (!currentSymbol) return;
+  addToWatchlist(currentSymbol);
+});
+
+// Hook into symbol changes so the button state stays in sync
+const _originalHandleSearchForWatchlist = handleSearch;
+handleSearch = function () {
+  _originalHandleSearchForWatchlist();
+  syncWatchlistButtonState(currentSymbol);
+};
+
+// Initial sync on page load
+syncWatchlistButtonState(currentSymbol);
