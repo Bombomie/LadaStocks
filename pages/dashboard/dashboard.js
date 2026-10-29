@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:20269';
+const API_BASE_URL = 'https://ladastocks-api-server.onrender.com';
 
 async function loadCurrentUser() {
   try {
@@ -30,3 +30,12 @@ async function loadCurrentUser() {
 }
 
 loadCurrentUser();
+
+(async function requireLogin() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/auth/me`, { credentials: 'include' });
+    if (!res.ok) throw new Error();
+  } catch {
+    window.location.href = '../authentication/login/login.html';
+  }
+})();

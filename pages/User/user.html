@@ -40,8 +40,31 @@
     <img src="../../Images/profile.png" alt="User avatar" class="profile-pic">
     <h1 class="username">Username</h1>
     <p>0 / 0 / 0</p>
-    <button class="edit-pf">Edit profile</button>
+    <div class="modal" id="editModal" hidden>
+    <div class="modal-box">
+      <h2>Edit profile</h2>
+
+      <!-- the new form goes here, replacing the old profileForm -->
+      <form id="profileForm">
+        <label>Username <input type="text" id="editUsername" required maxlength="30"></label>
+        <label>Email <input type="email" id="editEmail" disabled></label>
+        <label>Birth date <input type="date" id="editBirthDate" required></label>
+        <button type="submit">Save changes</button>
+      </form>
+
+      <h2>Change password</h2>
+      <form id="passwordForm">
+        <label>Current password <input type="password" id="currentPassword" required></label>
+        <label>New password <input type="password" id="newPassword" minlength="8" required></label>
+        <label>Confirm new password <input type="password" id="confirmPassword" required></label>
+        <button type="submit">Update password</button>
+      </form>
+
+      <p id="modalMsg"></p>
+      <button type="button" id="closeModal">Close</button>
+    </div>
   </div>
+
 
   <div class="placeholder-grid">
     <div class="placeholder-card"></div>
