@@ -13,7 +13,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",
     "cookie-parser": "^1.4.7",
-    "dotenv": "^16.4.7",
+    "dotenv": "^16.6.1",
     "express": "^5.2.1",
     "helmet": "^8.1.0",
     "plotly.js-dist": "^4.1.1"
