@@ -1,10 +1,22 @@
-const API_BASE_URL = 'http://localhost:20269';
+// login.js
+// ------------------------------------------------------------
+// FIX: API calls are now SAME-ORIGIN (relative URLs, no host).
+// The Express server serves both this page and the API, so
+// '/api/...' always hits the right server and the auth cookies
+// always belong to the same host as the page.
+//
+// Previously this file called http://localhost:20269 while
+// dashboard.js called https://ladastocks-api-server.onrender.com.
+// Cookies set for localhost are invisible to the Render host,
+// so login said "logged in" and dashboard said "401" — an
+// infinite login <-> dashboard redirect loop.
+// ------------------------------------------------------------
 
 const loginForm = document.getElementById('loginForm');
 
 (async function redirectIfLoggedIn() {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/auth/me`, { credentials: 'include' });
+    const res = await fetch('/api/auth/me', { credentials: 'include' });
     if (res.ok) window.location.href = '../../dashboard/dashboard.html';
   } catch { /* stay on login page */ }
 })();
@@ -53,7 +65,7 @@ loginForm.addEventListener('submit', async function (event) {
   try {
     showAlert('Logging in...');
 
-    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+    const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
