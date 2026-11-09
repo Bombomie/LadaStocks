@@ -11,6 +11,7 @@ import portfolioRouter from './routes/portfolio.js';
 import tradingRouter from './routes/trading.js';
 import watchlistRouter from './routes/watchlist.js'; // <-- Add this
 import uploadsRouter from './routes/uploads.js';
+import passwordRouter from './routes/password.js';
 
 import { env } from './config/env.js';
 
@@ -34,6 +35,7 @@ app.use('/api/portfolio', portfolioRouter);
 app.use('/api/trading', tradingRouter);
 app.use('/api/watchlist', watchlistRouter); // <-- Mount watchlist
 app.use('/api/uploads', uploadsRouter);
+app.use('/api/auth', passwordRouter);
 
 app.use(express.static(env.projectRoot));
 
