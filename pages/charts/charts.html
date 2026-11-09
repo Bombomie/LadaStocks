@@ -11,30 +11,15 @@
   <link rel="stylesheet" href="charts.css" />
   <!-- Import Plotly.js -->
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <!-- Reusable navbar component (renders the header, active link,
+       username and session guard). Needs no config. -->
+  <script src="../shared/navbar.js" defer></script>
 </head>
 <body>
-  <header>
-    <a href="../dashboard/dashboard.html" class="logo">
-      <img src="../../Images/LadaStocks.png" alt="Lada Stocks logo">
-    </a>
+  <!-- The old copy-pasted <header> block was replaced by this one line.
+       It renders the navbar and marks "Charts" active automatically. -->
+  <lada-navbar></lada-navbar>
 
-    <ul class="nav-links">
-      <li><a href="../dashboard/dashboard.html">Dashboard</a></li>
-      <li><a href="../portfolio/portfolio.html">Portfolio</a></li>
-      <li><a href="../wallet/wallet.html">Wallet</a></li>
-      <li><a href="../watchlist/watchlist.html">Watchlist</a></li>
-      <li><a href="../transactions/transactions.html">Transactions</a></li>
-      <li><a href="../charts/charts.html" class="active">Charts</a></li>
-    </ul>
-
-    <div class="nav-right">
-      <span class="username">Username</span>
-      <a href="../User/user.html">
-        <img src="../../Images/profile.png" alt="User avatar" class="avatar">
-      </a>
-    </div>
-  </header>
-  
   <section class="content">
     <h1>Charts</h1>
     <hr>
@@ -47,7 +32,7 @@
             <button class="search-btn" type="submit">
               <img src="../../Images/SVG/search.svg" class="search-icon" alt="Search">
             </button>
-            
+
             <!-- Add this dropdown div -->
             <div id="suggestions" class="suggestions-list"></div>
           </div>
