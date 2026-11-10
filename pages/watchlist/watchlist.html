@@ -9,35 +9,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LadaStocks</title>
   <link rel="stylesheet" href="watchlist.css" />
+  <!-- Reusable navbar component (renders the header, active link,
+       username and session guard). Needs no config. -->
+  <script src="../shared/navbar.js" defer></script>
   <script src="watchlist.js" defer></script>
 </head>
 <body>
-  <header>
-    <a href="../dashboard/dashboard.html" class="logo">
-      <img src="../../Images/LadaStocks.png" alt="Lada Stocks logo">
-    </a>
+  <!-- The old copy-pasted <header> block was replaced by this one line.
+       It renders the navbar and marks "Watchlist" active automatically. -->
+  <lada-navbar></lada-navbar>
 
-    <ul class="nav-links">
-      <li><a href="../dashboard/dashboard.html">Dashboard</a></li>
-      <li><a href="../portfolio/portfolio.html">Portfolio</a></li>
-      <li><a href="../wallet/wallet.html">Wallet</a></li>
-      <li><a href="../watchlist/watchlist.html" class="active">Watchlist</a></li>
-      <li><a href="../transactions/transactions.html">Transactions</a></li>
-      <li><a href="../charts/charts.html">Charts</a></li>
-    </ul>
-
-    <div class="nav-right">
-      <span class="username">Username</span>
-      <a href="../User/user.html">
-        <img src="../../Images/profile.png" alt="User avatar" class="avatar">
-      </a>
-    </div>
-  </header>
   <section class="content">
     <h1>Watchlist</h1>
     <hr>
     <div class="lower-grid">
- 
+
             <div class="watchlist-panel">
         <h2>Stock Watchlists</h2>
 
@@ -67,16 +53,16 @@
           </table>
         </div>
       </div>
- 
+
       <div class="details-panel">
         <h2>Details</h2>
         <div id="detailsBody" class="details-body">
           <p class="details-empty">Select a stock from your watchlist to see details.</p>
         </div>
       </div>
- 
+
     </div>
- 
+
   </section>
 </body>
 </html>

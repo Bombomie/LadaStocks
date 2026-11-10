@@ -133,27 +133,22 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// GET /api/auth/me — full profile, now including avatar_url
 router.get('/me', requireAuth, async (req, res) => {
   try {
     const { supabase, user } = req.auth;
 
-    const { data: profile, error } = await supabase
+    const { data, error } = await supabase
       .from('users')
-      .select('user_id, username, email, birth_date, created_at, last_login')
+      .select('user_id, username, email, birth_date, avatar_url, created_at, last_login')
       .eq('user_id', user.id)
       .single();
 
-    if (error || !profile) {
-      console.error('Profile lookup error:', error?.message);
-      return res.status(404).json({ message: 'User profile not found.' });
-    }
-
-    return res.json({
-      user: profile,
-    });
-  } catch (error) {
-    console.error('Me route error:', error);
-    return res.status(500).json({ message: 'Could not load user profile.' });
+    if (error) return res.status(400).json({ error: error.message });
+    return res.json({ user: data });
+  } catch (err) {
+    console.error('Load profile error:', err.message);
+    return res.status(500).json({ error: 'Failed to load profile.' });
   }
 });
 
@@ -182,48 +177,65 @@ router.post('/logout', async (req, res) => {
   return res.json({ message: 'Logged out.' });
 });
 
-// Update profile details (username, birth date)
+// PATCH /api/auth/me — ONLY username and avatar_url are writable.
+// email and birthDate are refused: they must go through the administrator.
 router.patch('/me', requireAuth, async (req, res) => {
   try {
     const { supabase, user } = req.auth;
+
+    // Locked fields — explicit 400 instead of silently ignoring.
+    if (req.body.email !== undefined) {
+      return res.status(400).json({
+        error: 'Email cannot be changed. Contact the administrator.',
+      });
+    }
+    if (req.body.birthDate !== undefined || req.body.birth_date !== undefined) {
+      return res.status(400).json({
+        error: 'Birth date cannot be changed. Contact the administrator.',
+      });
+    }
+
     const updates = {};
 
     if (req.body.username !== undefined) {
       const username = String(req.body.username).trim();
-      if (!username || username.length > 30) {
-        return res.status(400).json({ message: 'Username must be 1–30 characters.' });
+      if (username.length < 1 || username.length > 30) {
+        return res.status(400).json({ error: 'Username must be 1-30 characters.' });
       }
       updates.username = username;
     }
 
-    if (req.body.birthDate !== undefined) {
-      const birthDate = String(req.body.birthDate).trim();
-      if (!isIsoDate(birthDate) || new Date(birthDate) > new Date()) {
-        return res.status(400).json({ message: 'Please enter a valid birth date.' });
+    if (req.body.avatarUrl !== undefined) {
+      const url = String(req.body.avatarUrl);
+      if (!/^https:\/\/res\.cloudinary\.com\//.test(url)) {
+        return res.status(400).json({ error: 'Avatar must be a Cloudinary URL.' });
       }
-      updates.birth_date = birthDate;
+      updates.avatar_url = url;
     }
 
     if (Object.keys(updates).length === 0) {
-      return res.status(400).json({ message: 'Nothing to update.' });
+      return res.status(400).json({ error: 'No updatable fields provided.' });
     }
 
-    const { data: profile, error } = await supabase
+    const { data, error } = await supabase
       .from('users')
       .update(updates)
       .eq('user_id', user.id)
-      .select('user_id, username, email, birth_date, created_at, last_login')
+      .select('user_id, username, email, birth_date, avatar_url, created_at')
       .single();
 
     if (error) {
-      console.error('Profile update error:', error.message);
-      return res.status(400).json({ message: 'Could not update profile.' });
+      // Duplicate username hits the users_username_key unique constraint.
+      if (error.code === '23505') {
+        return res.status(400).json({ error: 'That username is already taken.' });
+      }
+      return res.status(400).json({ error: error.message });
     }
 
-    return res.json({ message: 'Profile updated.', user: profile });
-  } catch (error) {
-    console.error('Update profile route error:', error);
-    return res.status(500).json({ message: 'Could not update profile.' });
+    return res.json({ user: data, message: 'Profile updated.' });
+  } catch (err) {
+    console.error('Update profile error:', err.message);
+    return res.status(500).json({ error: 'Failed to update profile.' });
   }
 });
 

@@ -123,6 +123,12 @@ button:hover {
     
 }
 
+button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+    transform: none;
+}
+
 p {
     text-align: center;
     margin-top: 1rem;
@@ -140,6 +146,15 @@ p a {
 p a:hover {
     color: var(--aqua);
     transition: color 0.3s ease-in-out;
+}
+
+/* Hint line under the heading (change_password page) */
+p.form-hint {
+    margin-top: 0;
+    margin-bottom: -0.5rem;
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.65);
 }
 
 

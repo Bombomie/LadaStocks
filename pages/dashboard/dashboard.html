@@ -10,30 +10,15 @@
   <title>LadaStocks</title>
   <link rel="stylesheet" href="dashboard.css" />
   <script src="../shared/config.js"></script>
+  <script src="../shared/navbar.js" defer></script>
   <script src="dashboard.js" defer></script>
 </head>
 <body>
-  <header>
-    <a href="dashboard.html" class="logo">
-      <img src="../../Images/LadaStocks.png" alt="Lada Stocks logo">
-    </a>
+  <!-- The entire <header> block is replaced by one custom element.
+       It renders the navbar, marks the active link, loads the
+       username and guards the session (redirects on 401). -->
+  <lada-navbar></lada-navbar>
 
-    <ul class="nav-links">
-      <li><a href="../dashboard/dashboard.html" class="active">Dashboard</a></li>
-      <li><a href="../portfolio/portfolio.html">Portfolio</a></li>
-      <li><a href="../wallet/wallet.html">Wallet</a></li>
-      <li><a href="../watchlist/watchlist.html">Watchlist</a></li>
-      <li><a href="../transactions/transactions.html">Transactions</a></li>
-      <li><a href="../charts/charts.html">Charts</a></li>
-    </ul>
-
-    <div class="nav-right">
-      <span class="username">Username</span>
-      <a href="../User/user.html">
-        <img src="../../Images/profile.png" alt="User avatar" class="avatar">
-      </a>
-    </div>
-  </header>
   <section class="content">
     <h1>Dashboard</h1>
     <hr>
@@ -56,7 +41,7 @@
           </script>
         </div>
       </div>
-      
+
       <!-- S&P 500 Mini Chart -->
       <div class="card small">
         <div class="tradingview-widget-container" style="height: 100%; width: 100%;">
@@ -76,7 +61,7 @@
           </script>
         </div>
       </div>
-      
+
       <!-- Brent Oil Mini Chart -->
       <div class="card small">
         <div class="tradingview-widget-container" style="height: 100%; width: 100%;">
@@ -96,7 +81,7 @@
           </script>
         </div>
       </div>
-      
+
       <!-- Nasdaq (QQQ) Mini Chart -->
       <div class="card small">
         <div class="tradingview-widget-container" style="height: 100%; width: 100%;">

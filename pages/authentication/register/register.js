@@ -1,4 +1,9 @@
-const API_BASE_URL = 'http://localhost:20269';
+// register.js
+// ------------------------------------------------------------
+// FIX: API calls are now SAME-ORIGIN (relative URL, no host),
+// matching login.js. See the comment block in login.js for why
+// the hardcoded http://localhost:20269 caused the redirect loop.
+// ------------------------------------------------------------
 
 document.getElementById('birthDate').value = '';
 const registerForm = document.getElementById('registerForm');
@@ -60,7 +65,7 @@ registerForm.addEventListener('submit', async function (event) {
   try {
     showAlert('Creating your account...');
 
-    const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+    const response = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
