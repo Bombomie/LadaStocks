@@ -1,9 +1,25 @@
 // routes/stocks.js
 import express from 'express';
-
-import { getTimeSeries, getRealTimeQuote, searchSymbols } from '../middleware/stockService.js';
-
+import { getTimeSeries, getRealTimeQuote, searchSymbols, getCacheStats } from '../middleware/stockService.js';
 const router = express.Router();
+
+// GET /api/stocks/cache-stats
+router.get('/cache-stats', (_req, res) => {
+  res.json(getCacheStats());
+});
+
+
+// At the top, add an import for a new stats function
+// (we'll export it from stockService.js — see below)
+
+// GET /api/stocks/cache-stats
+router.get('/cache-stats', (_req, res) => {
+  res.json({
+    cacheSize: cache.size,
+    twelveDataRecentRequests: twelveDataRequestTimes.length,
+    rateLimitRemaining: RATE_LIMIT_MAX - twelveDataRequestTimes.length,
+  });
+});
 
 // GET /api/stocks/candles/:symbol
 router.get('/candles/:symbol', async (req, res) => {
@@ -56,6 +72,8 @@ router.get('/search/:query', async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
+
 
 
 export default router;

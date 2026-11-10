@@ -40,8 +40,13 @@ async function fetchHoldingsValue() {
   let totalValue = 0;
   holdings.forEach((h, index) => {
     const quote = quotes[index];
-    // Fallback across possible API response shapes
-    const price = parseFloat(quote?.data?.close || quote?.data?.price || quote?.price) || 0;
+    // Match the actual field name returned by getRealTimeQuote
+    const price = parseFloat(
+      quote?.data?.currentPrice || 
+      quote?.data?.close || 
+      quote?.data?.price || 
+      0
+    );
     totalValue += price * h.quantity;
   });
 
@@ -111,7 +116,6 @@ async function init() {
   const tbody = document.getElementById('activityBody');
   tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Loading activity...</td></tr>';
 
-  // loadCurrentUser();
   try {
     const [wallet, portfolioValue, transactions] = await Promise.all([
       fetchWallet(),
