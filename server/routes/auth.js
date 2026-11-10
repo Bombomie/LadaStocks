@@ -1,6 +1,7 @@
 import express from 'express';
 import { createSupabaseClient } from '../config/supabase.js';
 import { requireAuth } from '../middleware/requireAuth.js';
+import { requireAdmin } from '../middleware/requireAdmin.js';
 import {
   ACCESS_COOKIE,
   REFRESH_COOKIE,
@@ -111,12 +112,19 @@ router.post('/login', async (req, res) => {
       .eq('user_id', data.user.id)
       .single();
 
-    if (profileError) {
+        if (profileError) {
       console.warn('Could not load profile after login:', profileError.message);
     }
 
+      const { data: adminRow } = await supabase
+      .from('admins')
+      .select('admin_id')
+      .eq('auth_user_id', data.user.id)
+      .maybeSingle();
+
     return res.json({
       message: 'Login successful.',
+      isAdmin: Boolean(adminRow),
       user: {
         id: data.user.id,
         email: data.user.email,
@@ -150,6 +158,11 @@ router.get('/me', requireAuth, async (req, res) => {
     console.error('Load profile error:', err.message);
     return res.status(500).json({ error: 'Failed to load profile.' });
   }
+});
+
+// GET /api/auth/admin/check: 200 if admin, 403 if not
+router.get('/admin/check', requireAuth, requireAdmin, (req, res) => {
+  res.json({ isAdmin: true });
 });
 
 router.post('/logout', async (req, res) => {

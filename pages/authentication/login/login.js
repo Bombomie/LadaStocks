@@ -17,7 +17,12 @@ const loginForm = document.getElementById('loginForm');
 (async function redirectIfLoggedIn() {
   try {
     const res = await fetch('/api/auth/me', { credentials: 'include' });
-    if (res.ok) window.location.href = '../../dashboard/dashboard.html';
+    if (!res.ok) return;
+
+    const adminRes = await fetch('/api/auth/admin/check', { credentials: 'include' });
+    window.location.href = adminRes.ok
+      ? '../../admin/admin-dashboard.html'
+      : '../../dashboard/dashboard.html';
   } catch { /* stay on login page */ }
 })();
 
@@ -79,10 +84,12 @@ loginForm.addEventListener('submit', async function (event) {
       return;
     }
 
-    showAlert('Login successful! Redirecting...');
-    setTimeout(() => {
-      window.location.href = '../../dashboard/dashboard.html';
-    }, 700);
+        showAlert('Login successful! Redirecting...');
+        setTimeout(() => {
+          window.location.href = data.isAdmin
+            ? '../../admin/admin-dashboard.html'
+            : '../../dashboard/dashboard.html';
+        }, 700);
   } catch (error) {
     console.error('Network error:', error);
     showAlert('Network error. Could not reach the API server.');

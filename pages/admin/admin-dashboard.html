@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="apple-touch-icon" sizes="180x180" href="/Images/Favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="Images/Favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="Images/Favicon/favicon-16x16.png">
+  <link rel="manifest" href="Images/Favicon/site.webmanifest">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LadaStocks Admin</title>
+  <link rel="stylesheet" href="admin.css" />
+  <link rel="stylesheet" href="admin-panel.css" />
+  <script src="admin.js"></script>
+  <script src="../shared/config.js"></script>
+  <script src="../shared/navbar.js" defer></script>
+</head>
+<body>
+  <lada-navbar></lada-navbar>
+
+  <div class="content admin-layout">
+    <nav class="sidebar">
+      <button class="active" data-view="dashboard">Dashboard</button>
+      <button data-view="users">Users <span id="bdayBadge" class="badge" hidden></span></button>
+    </nav>
+
+    <main>
+      <h1 id="title">Dashboard</h1>
+      <hr>
+
+      <div id="view-dashboard" class="view dash-grid">
+        <section class="panel">
+          <h2>Top Users</h2>
+          <div id="topUsers"></div>
+        </section>
+
+        <div class="side-col">
+          <section class="panel">
+            <h2>Birthdays Today</h2>
+            <div id="bdays"></div>
+          </section>
+          <section class="panel">
+            <h2>Challenges</h2>
+            <div id="challenges"></div>
+            <button class="btn" id="newChallenge">New challenge</button>
+          </section>
+          <section class="panel">
+            <h2>Popular Stocks</h2>
+            <div id="stocks"></div>
+          </section>
+        </div>
+      </div>
+
+      <div id="view-users" class="view panel" hidden>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>User</th><th>Email</th><th>Balance</th><th>Status</th><th></th></tr></thead>
+            <tbody id="userRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="bonusDlg">
+    <form id="bonusForm" class="dlg">
+      <h2 id="bonusTitle">Grant bonus</h2>
+      <label>Amount<input name="amount" type="number" min="0.01" step="0.01" required></label>
+      <label>Type
+        <select name="type"><option value="birthday">Birthday</option><option value="manual">Manual</option></select>
+      </label>
+      <label>Reason<input name="reason" maxlength="200"></label>
+      <div class="dlg-actions">
+        <button type="button" class="btn ghost" data-close>Cancel</button>
+        <button class="btn">Grant bonus</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="challengeDlg">
+    <form id="challengeForm" class="dlg">
+      <h2>New challenge</h2>
+      <label>Title<input name="title" maxlength="100" required></label>
+      <label>Description<input name="description" maxlength="500"></label>
+      <label>Type
+        <select name="type"><option value="standard">Standard</option><option value="special">Special</option></select>
+      </label>
+      <label>Ends<input name="ends" type="datetime-local"></label>
+      <div class="dlg-actions">
+        <button type="button" class="btn ghost" data-close>Cancel</button>
+        <button class="btn">Create challenge</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>
