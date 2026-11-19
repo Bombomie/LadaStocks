@@ -19,55 +19,22 @@
 // lives in auth.js as POST /api/auth/change-password. This file only
 // covers the forgot-my-password flow for logged-out users.
 //
-// WHY A DEDICATED CLIENT? The Supabase client here is created with
-// `flowType: 'implicit'`, which makes the recovery link redirect back to
-// our page with the session tokens in the URL fragment — a format the
-// change_password page can read without any Supabase JS in the browser.
-// If your main client is configured differently (e.g. PKCE), the link
-// format changes and the page cannot parse it.
-// ------------------------------------------------------------
-
 import express from 'express';
-import { createClient } from '@supabase/supabase-js';
+import { env } from '../config/env.js';
+import { createSupabaseClient } from '../config/supabase.js';
 
 const router = express.Router();
-
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
-
-// Public address of THIS app. The recovery email's "Reset password"
-// button sends the user to `${APP_URL}/pages/authentication/change_password/
-// change_password.html`. Set APP_URL in .env / Render (no trailing slash).
-const APP_URL = (process.env.APP_URL || 'http://localhost:20269').replace(/\/+$/, '');
-
-const RESET_REDIRECT_URL = `${APP_URL}/pages/authentication/change_password/change_password.html`;
-
-// Sends the recovery email. 'implicit' flow → link returns tokens in the
-// URL fragment (see comment at the top).
-const resetMailer = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { flowType: 'implicit', persistSession: false, autoRefreshToken: false },
-});
-
-// Throwaway session holder for the actual password change.
-const sessionClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
+const RESET_REDIRECT_URL = `${env.appUrl}/pages/authentication/change_password/change_password.html`;
 
 // POST /api/auth/forgot-password — send the recovery email
 router.post('/forgot-password', async (req, res) => {
   try {
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-      return res
-        .status(500)
-        .json({ message: 'Password reset is not configured on the server.' });
-    }
-
     const email = String(req.body.email || '').trim().toLowerCase();
     if (!email) {
       return res.status(400).json({ message: 'Please enter your email.' });
     }
 
-    const { error } = await resetMailer.auth.resetPasswordForEmail(email, {
+    const { error } = await createSupabaseClient().auth.resetPasswordForEmail(email, {
       redirectTo: RESET_REDIRECT_URL,
     });
 
@@ -109,7 +76,8 @@ router.post('/update-password', async (req, res) => {
         .json({ message: 'Password must be at least 8 characters long.' });
     }
 
-    // Activate the recovery session that came from the email link…
+    const sessionClient = createSupabaseClient();
+    // Activate the recovery session that came from the email link.
     const { error: sessionError } = await sessionClient.auth.setSession({
       access_token: accessToken,
       refresh_token: refreshToken,

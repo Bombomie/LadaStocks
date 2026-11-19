@@ -2,6 +2,7 @@
 import express from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { getRealTimeQuote } from '../middleware/stockService.js';
+import { updateWalletBalance, walletChangedMessage } from '../utils/updateWalletBalance.js';
 
 const router = express.Router();
 
@@ -76,12 +77,8 @@ router.post('/buy', requireAuth, async (req, res) => {
     }
 
     // 4. Deduct cash from wallet
-    const newBalance = currentBalance - totalCost;
-    const { error: walletUpdateErr } = await supabase
-      .from('wallets')
-      .update({ balance: newBalance, updated_at: new Date().toISOString() })
-      .eq('user_id', user.id);
-    if (walletUpdateErr) throw walletUpdateErr;
+    const newBalance = await updateWalletBalance(supabase, user.id, wallet.balance, currentBalance - totalCost);
+    if (newBalance === null) return res.status(409).json({ message: walletChangedMessage });
 
     // 5. Update holdings (calculate weighted average buy price)
     const { data: existingHolding } = await supabase
@@ -205,12 +202,8 @@ router.post('/sell', requireAuth, async (req, res) => {
       .single();
     if (wError) throw wError;
 
-    const newBalance = parseFloat(wallet.balance) + totalProceeds;
-    const { error: walletUpdateErr } = await supabase
-      .from('wallets')
-      .update({ balance: newBalance, updated_at: new Date().toISOString() })
-      .eq('user_id', user.id);
-    if (walletUpdateErr) throw walletUpdateErr;
+    const newBalance = await updateWalletBalance(supabase, user.id, wallet.balance, Number(wallet.balance) + totalProceeds);
+    if (newBalance === null) return res.status(409).json({ message: walletChangedMessage });
 
     // 5. Update holdings (delete row if fully sold)
     const newQty = holding.quantity - quantity;

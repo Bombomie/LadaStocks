@@ -38,7 +38,7 @@ hr {
 
 .content h1 { font-family: Jost; color: white; }
 
-.mock-banner {
+.admin-message {
   display: inline-block;
   margin: 0 0 6px;
   padding: 6px 14px;
@@ -48,7 +48,7 @@ hr {
   font-family: Lexend Deca;
   font-size: 0.8rem;
 }
-.mock-banner[hidden] { display: none; }
+.admin-message[hidden] { display: none; }
 
 /* ---------- summary strip (same as wallet) ---------- */
 .summary-strip {

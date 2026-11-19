@@ -6,7 +6,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '../..');
 
-dotenv.config({ path: path.join(projectRoot, '.env.local') });
+dotenv.config({ path: ['.env.local', 'env.local'].map((file) => path.join(projectRoot, file)) });
 
 const required = ['SUPABASE_URL', 'SUPABASE_PUBLISHABLE_KEY'];
 for (const name of required) {
@@ -15,9 +15,12 @@ for (const name of required) {
   }
 }
 
+const port = Number(process.env.PORT || 20269);
+
 export const env = {
   projectRoot,
-  port: Number(process.env.PORT || 20269),
+  port,
+  appUrl: (process.env.APP_URL || `http://localhost:${port}`).replace(/\/+$/, ''),
   nodeEnv: process.env.NODE_ENV || 'development',
   supabaseUrl: process.env.SUPABASE_URL,
   supabasePublishableKey: process.env.SUPABASE_PUBLISHABLE_KEY,

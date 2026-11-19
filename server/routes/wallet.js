@@ -1,5 +1,6 @@
 import express from 'express';
 import { requireAuth } from '../middleware/requireAuth.js';
+import { updateWalletBalance, walletChangedMessage } from '../utils/updateWalletBalance.js';
 
 const router = express.Router();
 
@@ -116,13 +117,8 @@ router.post('/deposit', requireAuth, async (req, res) => {
       
     if (wError) throw wError;
 
-    const newBalance = parseFloat(wallet.balance) + amount;
-    const { error: updateError } = await supabase
-      .from('wallets')
-      .update({ balance: newBalance, updated_at: new Date().toISOString() })
-      .eq('user_id', user.id);
-      
-    if (updateError) throw updateError;
+    const newBalance = await updateWalletBalance(supabase, user.id, wallet.balance, Number(wallet.balance) + amount);
+    if (newBalance === null) return res.status(409).json({ message: walletChangedMessage });
 
     // 2. Log Transaction
     const { error: logError } = await supabase
@@ -160,13 +156,8 @@ router.post('/withdraw', requireAuth, async (req, res) => {
       return res.status(400).json({ message: 'Insufficient funds.' });
     }
 
-    const newBalance = parseFloat(wallet.balance) - amount;
-    const { error: updateError } = await supabase
-      .from('wallets')
-      .update({ balance: newBalance, updated_at: new Date().toISOString() })
-      .eq('user_id', user.id);
-      
-    if (updateError) throw updateError;
+    const newBalance = await updateWalletBalance(supabase, user.id, wallet.balance, Number(wallet.balance) - amount);
+    if (newBalance === null) return res.status(409).json({ message: walletChangedMessage });
 
     const { error: logError } = await supabase
       .from('wallet_transactions')
