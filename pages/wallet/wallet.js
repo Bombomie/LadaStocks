@@ -1,84 +1,116 @@
-async function loadCurrentUser() {
-  try {
-    const response = await fetch('/api/auth/me', {
-      method: 'GET', credentials: 'include', headers: { Accept: 'application/json' },
-    });
-    if (response.status === 401) return window.location.replace('../authentication/login/login.html');
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.message);
-    const el = document.querySelector('.username');
-    if (el) el.textContent = data.user.username || 'User';
-  } catch (err) {
-    console.error('Auth error:', err);
+// pages/wallet/wallet.js
+
+let allActivity = [];
+let walletChart = null;
+
+const esc = (v) =>
+  String(v ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[c]));
+
+const fmtUSD = (n) => Number(n ?? 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+
+function setWalletMsg(msg, isSuccess = false) {
+  const el = document.getElementById('walletMessage');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.toggle('success', Boolean(msg) && isSuccess);
+  el.classList.toggle('error', Boolean(msg) && !isSuccess);
+}
+
+async function fetchJson(url) {
+  const res = await fetch(url, { credentials: 'include' });
+  if (res.status === 401) {
     window.location.replace('../authentication/login/login.html');
+    throw new Error('Unauthorized');
   }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.message || `Request failed (${res.status})`);
+  return data;
 }
 
-const fmtUSD = (n) => (n ?? 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+function renderWalletChart(history) {
+  const canvas = document.getElementById('walletHistoryChart');
+  if (!canvas || typeof Chart === 'undefined') return;
 
-async function fetchWallet() {
-  const res = await fetch('/api/wallet', { credentials: 'include' });
-  if (!res.ok) throw new Error('Could not load wallet');
-  return res.json(); // { balance }
-}
+  if (walletChart) walletChart.destroy();
 
-async function fetchHoldingsValue() {
-  const res = await fetch('/api/portfolio/holdings', { credentials: 'include' });
-  if (!res.ok) return 0;
-  const holdings = await res.json();
-  if (!holdings.length) return 0;
+  const labels = (history || []).map((p) => p.date);
+  const values = (history || []).map((p) => Number(p.balance ?? 0));
 
-  // Fetch all quotes IN PARALLEL instead of one by one
-  const quotePromises = holdings.map(h => 
-    fetch(`/api/stocks/quote/${h.symbol}`, { credentials: 'include' })
-      .then(r => r.ok ? r.json() : null)
-      .catch(() => null) // Fail gracefully if a single stock fails
-  );
-  
-  const quotes = await Promise.all(quotePromises);
-
-  let totalValue = 0;
-  holdings.forEach((h, index) => {
-    const quote = quotes[index];
-    // Match the actual field name returned by getRealTimeQuote
-    const price = parseFloat(
-      quote?.data?.currentPrice || 
-      quote?.data?.close || 
-      quote?.data?.price || 
-      0
-    );
-    totalValue += price * h.quantity;
+  walletChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Cash Balance ($)',
+          data: values,
+          borderColor: '#FFC349',
+          backgroundColor: 'rgba(255, 195, 73, 0.16)',
+          fill: true,
+          tension: 0.25,
+          pointRadius: 2,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        y: {
+          ticks: {
+            color: '#fff',
+            callback: (v) => `$${Number(v).toLocaleString('en-US')}`,
+          },
+          grid: { color: 'rgba(255,255,255,0.08)' },
+        },
+        x: {
+          ticks: { color: '#fff', maxTicksLimit: 8 },
+          grid: { display: false },
+        },
+      },
+      plugins: {
+        legend: { labels: { color: '#fff' } },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ` Cash Balance: ${fmtUSD(ctx.parsed.y)}`,
+          },
+        },
+      },
+    },
   });
-
-  return totalValue;
 }
 
-async function fetchActivity() {
-  const res = await fetch('/api/transactions', { credentials: 'include' });
-  if (!res.ok) return [];
-  return res.json();
-}
-
-function renderActivity(transactions) {
+function renderActivity() {
   const tbody = document.getElementById('activityBody');
+  const filterVal = document.getElementById('activityFilter')?.value || 'all';
+  const rows = filterVal === 'all'
+    ? allActivity
+    : allActivity.filter((tx) => tx.category === filterVal);
+
   tbody.innerHTML = '';
-  
-  if (!transactions.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No recent transactions.</td></tr>';
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">No matching activity found.</td></tr>';
     return;
   }
 
-  // Slice the first 10 most recent transactions
-  transactions.slice(0, 10).forEach((tx) => {
-    const isSell = /sell|withdrawal/i.test(tx.tradeType);
-    const dateStr = tx.tradeEntered ? new Date(tx.tradeEntered).toLocaleDateString('en-US') : 'N/A';
-    
+  rows.slice(0, 25).forEach((tx) => {
+    const isCredit = /sell|deposit/i.test(tx.tradeType);
+    const dateStr = tx.tradeEntered ? new Date(tx.tradeEntered).toLocaleString('en-US') : 'N/A';
+
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td class="change ${isSell ? 'up' : 'down'}">${tx.tradeType}</td>
-      <td class="symbol">${tx.symbol}</td>
-      <td>${tx.amount != null ? fmtUSD(tx.amount) : `${tx.shares} sh`}</td>
-      <td>${dateStr}</td>
+      <td class="change ${isCredit ? 'up' : 'down'}">${esc(tx.tradeType)}</td>
+      <td>${esc(tx.symbol)}${tx.description ? ` <span style="color:var(--text-muted);font-size:0.8rem;">(${esc(tx.description)})</span>` : ''}</td>
+      <td class="change ${isCredit ? 'up' : 'down'}">${isCredit ? '+' : '-'}${fmtUSD(tx.amount ?? 0)}</td>
+      <td class="mono-id">${esc(tx.confirmation || '—')}</td>
+      <td>${esc(dateStr)}</td>
     `;
     tbody.appendChild(row);
   });
@@ -86,11 +118,19 @@ function renderActivity(transactions) {
 
 async function performFundAction(type) {
   const input = document.getElementById('fundAmount');
+  const depositBtn = document.getElementById('depositBtn');
+  const withdrawBtn = document.getElementById('withdrawBtn');
   const amount = parseFloat(input.value);
-  if (!amount || amount <= 0) {
-    alert('Enter a valid amount.');
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    setWalletMsg('Please enter a positive USD amount.', false);
     return;
   }
+
+  depositBtn.disabled = true;
+  withdrawBtn.disabled = true;
+  setWalletMsg('Processing request...', true);
+
   try {
     const res = await fetch(`/api/wallet/${type}`, {
       method: 'POST',
@@ -98,50 +138,69 @@ async function performFundAction(type) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ amount }),
     });
-    if (!res.ok) throw new Error('Request failed');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.message || `Could not complete ${type}.`);
+    }
     input.value = '';
+    setWalletMsg(data.message || `${type} completed.`, true);
     await init();
   } catch (err) {
-    alert(`Could not ${type}. Please try again.`);
+    setWalletMsg(err.message || `Could not ${type}. Please try again.`, false);
+  } finally {
+    depositBtn.disabled = false;
+    withdrawBtn.disabled = false;
   }
 }
 
 async function init() {
-  // Show loading states immediately
-  document.getElementById('cashBalance').textContent = 'Loading...';
-  document.getElementById('portfolioValue').textContent = 'Loading...';
-  document.getElementById('totalEarning').textContent = 'Loading...';
-  document.getElementById('totalSpending').textContent = 'Loading...';
-  
   const tbody = document.getElementById('activityBody');
-  tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Loading activity...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">Loading activity...</td></tr>';
 
   try {
-    const [wallet, portfolioValue, transactions] = await Promise.all([
-      fetchWallet(),
-      fetchHoldingsValue(),
-      fetchActivity(),
+    const [wallet, summary, transactions, history] = await Promise.all([
+      fetchJson('/api/wallet'),
+      fetchJson('/api/portfolio/summary').catch(() => ({ portfolioValue: 0 })),
+      fetchJson('/api/transactions').catch(() => []),
+      fetchJson('/api/wallet/history').catch(() => []),
     ]);
 
-    document.getElementById('cashBalance').textContent = fmtUSD(wallet.balance);
-    document.getElementById('portfolioValue').textContent = fmtUSD(portfolioValue);
+    allActivity = Array.isArray(transactions) ? transactions : [];
 
-    const earning = transactions.filter((t) => /sell/i.test(t.tradeType))
-      .reduce((s, t) => s + (t.amount || 0), 0);
-    const spending = transactions.filter((t) => /buy/i.test(t.tradeType))
-      .reduce((s, t) => s + (t.amount || 0), 0);
+    document.getElementById('cashBalance').textContent = fmtUSD(wallet.balance);
+    document.getElementById('portfolioValue').textContent = fmtUSD(summary?.portfolioValue ?? 0);
+    document.getElementById('startingBalanceLabel').textContent = `Starting Balance: ${fmtUSD(wallet.starting_balance ?? 100000)}`;
+
+    const earning = allActivity
+      .filter((t) => /sell/i.test(t.tradeType))
+      .reduce((s, t) => s + Number(t.amount || 0), 0);
+    const spending = allActivity
+      .filter((t) => /buy/i.test(t.tradeType))
+      .reduce((s, t) => s + Number(t.amount || 0), 0);
+
     document.getElementById('totalEarning').textContent = fmtUSD(earning);
     document.getElementById('totalSpending').textContent = fmtUSD(spending);
 
-    renderActivity(transactions);
+    renderWalletChart(history);
+    renderActivity();
   } catch (err) {
+    if (err.message === 'Unauthorized') return;
     console.error('Wallet load error:', err);
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--accent-down);">Failed to load data.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--accent-down);">Failed to load wallet data.</td></tr>';
   }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   init();
-  document.getElementById('depositBtn').addEventListener('click', () => performFundAction('deposit'));
-  document.getElementById('withdrawBtn').addEventListener('click', () => performFundAction('withdraw'));
+  document.getElementById('depositBtn')?.addEventListener('click', () => performFundAction('deposit'));
+  document.getElementById('withdrawBtn')?.addEventListener('click', () => performFundAction('withdraw'));
+  document.getElementById('activityFilter')?.addEventListener('change', renderActivity);
+
+  document.getElementById('presetButtons')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.preset-btn');
+    if (!btn) return;
+    const input = document.getElementById('fundAmount');
+    input.value = btn.dataset.amt || '';
+    input.focus();
+  });
 });
