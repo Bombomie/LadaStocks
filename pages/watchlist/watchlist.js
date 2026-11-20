@@ -1,31 +1,22 @@
-// watchlist.js
+// pages/watchlist/watchlist.js
 
-// ---- Auth check ----
-async function loadCurrentUser() {
-  try {
-    const response = await fetch('/api/auth/me', {
-      method: 'GET', credentials: 'include', headers: { Accept: 'application/json' },
-    });
-    if (response.status === 401) return window.location.replace('../authentication/login/login.html');
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.message);
-    const el = document.querySelector('.username');
-    if (el) el.textContent = data.user.username || 'User';
-  } catch (err) {
-    console.error('Auth error:', err);
-    window.location.replace('../authentication/login/login.html');
-  }
-}
-
-// ---- State ----
 let watchlist = [];
 let selectedSymbol = null;
+let activeFilter = 'all';
 let debounceTimer;
 
-const fmtUSD = (n) => (n ?? 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-const fmtSigned = (n, opts = {}) => `${n > 0 ? '+' : ''}${(n ?? 0).toLocaleString('en-US', opts)}`;
+const esc = (v) =>
+  String(v ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[c]));
 
-// ---- Toast notifications ----
+const fmtUSD = (n) => Number(n ?? 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+const fmtSigned = (n, opts = {}) => `${Number(n) > 0 ? '+' : ''}${Number(n ?? 0).toLocaleString('en-US', opts)}`;
+
 function showToast(message, type = 'info') {
   const existing = document.querySelector('.watchlist-toast');
   if (existing) existing.remove();
@@ -36,16 +27,18 @@ function showToast(message, type = 'info') {
   document.body.appendChild(toast);
 
   requestAnimationFrame(() => toast.classList.add('show'));
-
   setTimeout(() => {
     toast.classList.remove('show');
-    setTimeout(() => toast.remove(), 300);
+    setTimeout(() => toast.remove(), 250);
   }, 3000);
 }
 
-// ---- Watchlist API ----
 async function fetchWatchlistWithQuotes() {
   const res = await fetch('/api/watchlist/with-quotes', { credentials: 'include' });
+  if (res.status === 401) {
+    window.location.replace('../authentication/login/login.html');
+    return [];
+  }
   if (!res.ok) throw new Error('Failed to load watchlist');
   return res.json();
 }
@@ -63,7 +56,7 @@ async function addToWatchlist(symbol) {
 }
 
 async function removeFromWatchlist(symbol) {
-  const res = await fetch(`/api/watchlist/${symbol}`, {
+  const res = await fetch(`/api/watchlist/${encodeURIComponent(symbol)}`, {
     method: 'DELETE',
     credentials: 'include',
   });
@@ -71,7 +64,7 @@ async function removeFromWatchlist(symbol) {
 }
 
 async function updateTargetPrice(symbol, targetPrice) {
-  const res = await fetch(`/api/watchlist/${symbol}`, {
+  const res = await fetch(`/api/watchlist/${encodeURIComponent(symbol)}`, {
     method: 'PATCH',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -82,59 +75,94 @@ async function updateTargetPrice(symbol, targetPrice) {
   return data;
 }
 
-// ---- Render ----
+function renderSummary() {
+  const count = watchlist.length;
+  const alertsHit = watchlist.filter((s) => s.targetStatus === 'hit' || s.targetStatus === 'above').length;
+  const gainers = watchlist.filter((s) => Number(s.dailyChangePct) > 0).length;
+  const losers = watchlist.filter((s) => Number(s.dailyChangePct) < 0).length;
+
+  document.getElementById('wlCount').textContent = String(count);
+  document.getElementById('wlAlertsHit').textContent = String(alertsHit);
+  document.getElementById('wlGainers').textContent = String(gainers);
+  document.getElementById('wlLosers').textContent = String(losers);
+}
+
+function getFilteredWatchlist() {
+  if (activeFilter === 'targets') {
+    return watchlist.filter((s) => s.target_price != null);
+  }
+  if (activeFilter === 'alerts') {
+    return watchlist.filter((s) => s.targetStatus === 'hit' || s.targetStatus === 'above');
+  }
+  return watchlist;
+}
+
+function renderStatusBadge(stock) {
+  if (!stock.target_price) {
+    return '<span class="status-tag unset">No target</span>';
+  }
+  const deltaText = fmtSigned(stock.targetDeltaPct, { maximumFractionDigits: 2 }) + '%';
+  if (stock.targetStatus === 'hit') {
+    return `<span class="status-tag hit">Target Hit (${deltaText})</span>`;
+  }
+  if (stock.targetStatus === 'above') {
+    return `<span class="status-tag above">Above Target (${deltaText})</span>`;
+  }
+  return `<span class="status-tag below">Below Target (${deltaText})</span>`;
+}
+
 function renderWatchlist() {
   const tbody = document.getElementById('watchlistBody');
+  const items = getFilteredWatchlist();
   tbody.innerHTML = '';
 
-  if (!watchlist.length) {
+  if (!items.length) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">
-          Your watchlist is empty. Search above to add a stock.
+        <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">
+          ${watchlist.length ? 'No watchlist items match this filter.' : 'Your watchlist is empty. Search above to add a stock.'}
         </td>
       </tr>`;
     return;
   }
 
-  watchlist.forEach((stock) => {
-    const isUp = stock.changePct >= 0;
-    const changeBadge = stock.changeType === 'target'
-      ? '<span class="change-badge target">vs target</span>'
-      : '<span class="change-badge daily">daily</span>';
+  items.forEach((stock) => {
+    const dailyPct = Number(stock.dailyChangePct ?? stock.changePct ?? 0);
+    const isUp = dailyPct >= 0;
 
     const row = document.createElement('tr');
     row.dataset.symbol = stock.symbol;
     row.className = stock.symbol === selectedSymbol ? 'selected' : '';
     row.innerHTML = `
-      <td class="symbol">${stock.symbol}</td>
-      <td class="company">${stock.company}</td>
+      <td class="symbol">${esc(stock.symbol)}</td>
+      <td class="company" title="${esc(stock.company)}">${esc(stock.company)}</td>
       <td>${fmtUSD(stock.price)}</td>
+      <td class="change ${isUp ? 'up' : 'down'}">${fmtSigned(dailyPct, { maximumFractionDigits: 2 })}%</td>
       <td>
         <input
           type="number"
           class="target-input"
-          data-symbol="${stock.symbol}"
-          value="${stock.target_price || ''}"
+          data-symbol="${esc(stock.symbol)}"
+          value="${stock.target_price ?? ''}"
           placeholder="Set $"
           min="0"
           step="0.01"
         />
       </td>
-      <td class="change ${isUp ? 'up' : 'down'}">
-        ${fmtSigned(stock.changePct, { maximumFractionDigits: 2 })}%
-        ${changeBadge}
+      <td>${renderStatusBadge(stock)}</td>
+      <td>
+        <a class="trade-mini-link" href="../charts/charts.html?symbol=${encodeURIComponent(stock.symbol)}">Trade</a>
+        <button class="remove-btn" data-symbol="${esc(stock.symbol)}" title="Remove from watchlist">&times;</button>
       </td>
-      <td><button class="remove-btn" data-symbol="${stock.symbol}" title="Remove from watchlist">&times;</button></td>
     `;
+
     row.addEventListener('click', (e) => {
-      if (e.target.closest('.remove-btn') || e.target.closest('.target-input')) return;
+      if (e.target.closest('.remove-btn') || e.target.closest('.target-input') || e.target.closest('.trade-mini-link')) return;
       selectSymbol(stock.symbol);
     });
     tbody.appendChild(row);
   });
 
-  // Wire up remove buttons
   tbody.querySelectorAll('.remove-btn').forEach((btn) => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
@@ -150,17 +178,14 @@ function renderWatchlist() {
     });
   });
 
-  // Wire up target price inputs
   tbody.querySelectorAll('.target-input').forEach((input) => {
     let debounceTimerTP;
-    let originalValue = input.value;
+    const originalValue = input.value;
 
     input.addEventListener('input', () => {
       clearTimeout(debounceTimerTP);
       input.classList.add('saving');
-      debounceTimerTP = setTimeout(() => {
-        saveTargetPrice(input);
-      }, 800);
+      debounceTimerTP = setTimeout(() => saveTargetPrice(input), 800);
     });
 
     input.addEventListener('blur', () => {
@@ -190,7 +215,7 @@ async function saveTargetPrice(input) {
   const rawValue = input.value.trim();
   const targetPrice = rawValue === '' ? null : parseFloat(rawValue);
 
-  if (rawValue !== '' && (isNaN(targetPrice) || targetPrice <= 0)) {
+  if (rawValue !== '' && (Number.isNaN(targetPrice) || targetPrice <= 0)) {
     showToast('Target price must be a positive number.', 'error');
     input.classList.remove('saving');
     return;
@@ -199,11 +224,10 @@ async function saveTargetPrice(input) {
   try {
     await updateTargetPrice(symbol, targetPrice);
     input.classList.remove('saving');
-    if (targetPrice) {
-      showToast(`Target price set to ${fmtUSD(targetPrice)} for ${symbol}`, 'success');
-    } else {
-      showToast(`Target price cleared for ${symbol}`, 'info');
-    }
+    showToast(
+      targetPrice ? `Target price set to ${fmtUSD(targetPrice)} for ${symbol}` : `Target price cleared for ${symbol}`,
+      targetPrice ? 'success' : 'info'
+    );
     await refreshWatchlist();
   } catch (err) {
     showToast(err.message, 'error');
@@ -213,44 +237,44 @@ async function saveTargetPrice(input) {
 
 function renderDetails() {
   const container = document.getElementById('detailsBody');
-  const stock = watchlist.find((s) => s.symbol === selectedSymbol);
+  const stock = watchlist.find((s) => s.symbol === selectedSymbol) || watchlist[0];
 
   if (!stock) {
-    container.innerHTML = `<p class="details-empty">Select a stock from your watchlist to see details.</p>`;
+    container.innerHTML = `<p class="details-empty">Select a stock from your watchlist to inspect OHLCV market data and target distance.</p>`;
     return;
   }
 
-  const isUp = stock.changePct >= 0;
-  const changeBadge = stock.changeType === 'target' ? 'vs Target' : 'Daily';
+  selectedSymbol = stock.symbol;
+  const dailyPct = Number(stock.dailyChangePct ?? stock.changePct ?? 0);
+  const isUp = dailyPct >= 0;
 
   let targetSection = '';
   if (stock.target_price) {
-    const targetDiff = stock.price - stock.target_price;
-    const targetDiffPct = (targetDiff / stock.target_price) * 100;
-    const targetIsUp = targetDiff >= 0;
+    const diff = stock.price - stock.target_price;
+    const diffPct = stock.targetDeltaPct ?? (stock.target_price > 0 ? (diff / stock.target_price) * 100 : 0);
     targetSection = `
-      <div class="details-stats" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-soft);">
+      <div class="details-stats" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-soft);">
         <div><span>Target Price</span><span>${fmtUSD(stock.target_price)}</span></div>
-        <div><span>vs Target</span><span class="${targetIsUp ? 'up' : 'down'}" style="color: ${targetIsUp ? 'var(--accent-up)' : 'var(--accent-down)'};">${fmtSigned(targetDiffPct, { maximumFractionDigits: 2 })}%</span></div>
+        <div><span>Distance vs Target</span><span style="color:${diff >= 0 ? 'var(--accent-up)' : 'var(--accent-down)'};">${fmtUSD(diff)} (${fmtSigned(diffPct, { maximumFractionDigits: 2 })}%)</span></div>
       </div>
     `;
   }
 
   container.innerHTML = `
-    <div class="stock-name">${stock.company}</div>
-    <div class="stock-symbol">${stock.symbol}</div>
+    <div class="stock-name">${esc(stock.company)}</div>
+    <div class="stock-symbol">${esc(stock.symbol)}${stock.exchange ? ` &middot; ${esc(stock.exchange)}` : ''}${stock.status && stock.status !== 'active' ? ` &middot; <span style="color:#f87171;">${esc(stock.status.toUpperCase())}</span>` : ''}</div>
     <div class="stock-price">${fmtUSD(stock.price)}</div>
     <div class="stock-change ${isUp ? 'up' : 'down'}">
-      ${fmtSigned(stock.changePct, { maximumFractionDigits: 2 })}% (${changeBadge})
+      ${fmtSigned(dailyPct, { maximumFractionDigits: 2 })}% Today
     </div>
     <div class="details-stats">
       <div><span>Open</span><span>${fmtUSD(stock.open)}</span></div>
-      <div><span>Volume</span><span>${stock.volume}</span></div>
-      <div><span>High</span><span>${fmtUSD(stock.high)}</span></div>
-      <div><span>Low</span><span>${fmtUSD(stock.low)}</span></div>
+      <div><span>Volume</span><span>${esc(stock.volume || '—')}</span></div>
+      <div><span>Day High</span><span>${fmtUSD(stock.high)}</span></div>
+      <div><span>Day Low</span><span>${fmtUSD(stock.low)}</span></div>
     </div>
     ${targetSection}
-    <a href="../charts/charts.html" class="view-chart-link">View on Charts &rarr;</a>
+    <a href="../charts/charts.html?symbol=${encodeURIComponent(stock.symbol)}" class="view-chart-link">Trade ${esc(stock.symbol)} on Charts &rarr;</a>
   `;
 }
 
@@ -263,16 +287,19 @@ function selectSymbol(symbol) {
 async function refreshWatchlist() {
   try {
     watchlist = await fetchWatchlistWithQuotes();
+    if (!selectedSymbol && watchlist.length) {
+      selectedSymbol = watchlist[0].symbol;
+    }
   } catch (err) {
     console.error('Watchlist load error:', err);
     showToast('Could not load watchlist', 'error');
     watchlist = [];
   }
+  renderSummary();
   renderWatchlist();
   renderDetails();
 }
 
-// ---- Autocomplete Search ----
 const searchInput = document.getElementById('stockSearch');
 const suggestionsBox = document.getElementById('suggestions');
 const searchBtn = document.getElementById('searchBtn');
@@ -286,13 +313,14 @@ async function performSearch() {
     await addToWatchlist(query);
     showToast(`Added ${query} to watchlist`, 'success');
     searchInput.value = '';
+    selectedSymbol = query;
     await refreshWatchlist();
   } catch (err) {
     showToast(err.message, 'error');
   }
 }
 
-searchInput.addEventListener('input', () => {
+searchInput?.addEventListener('input', () => {
   clearTimeout(debounceTimer);
   const query = searchInput.value.trim();
 
@@ -303,21 +331,22 @@ searchInput.addEventListener('input', () => {
 
   debounceTimer = setTimeout(async () => {
     try {
-      const res = await fetch(`/api/stocks/search/${query}`, {
-        method: 'GET', credentials: 'include',
+      const res = await fetch(`/api/stocks/search/${encodeURIComponent(query)}`, {
+        method: 'GET',
+        credentials: 'include',
       });
       const result = await res.json();
 
-      if (result.success && result.data.length > 0) {
-        suggestionsBox.innerHTML = result.data.map(stock => `
-          <div class="suggestion-item" data-symbol="${stock.symbol}">
-            <span class="suggestion-symbol">${stock.symbol}</span>
-            <span class="suggestion-name">${stock.name} (${stock.exchange})</span>
+      if (result.success && Array.isArray(result.data) && result.data.length > 0) {
+        suggestionsBox.innerHTML = result.data.map((stock) => `
+          <div class="suggestion-item" data-symbol="${esc(stock.symbol)}">
+            <span class="suggestion-symbol">${esc(stock.symbol)}</span>
+            <span class="suggestion-name">${esc(stock.name || stock.symbol)} (${esc(stock.exchange || 'US')})</span>
           </div>
         `).join('');
         suggestionsBox.style.display = 'block';
 
-        document.querySelectorAll('.suggestion-item').forEach(item => {
+        suggestionsBox.querySelectorAll('.suggestion-item').forEach((item) => {
           item.addEventListener('click', async () => {
             const symbol = item.dataset.symbol;
             searchInput.value = '';
@@ -325,6 +354,7 @@ searchInput.addEventListener('input', () => {
             try {
               await addToWatchlist(symbol);
               showToast(`Added ${symbol} to watchlist`, 'success');
+              selectedSymbol = symbol;
               await refreshWatchlist();
             } catch (err) {
               showToast(err.message, 'error');
@@ -334,7 +364,7 @@ searchInput.addEventListener('input', () => {
       } else {
         suggestionsBox.innerHTML = `
           <div class="suggestion-item">
-            <span class="suggestion-name">No results for "${query}"</span>
+            <span class="suggestion-name">No results for "${esc(query)}"</span>
           </div>`;
         suggestionsBox.style.display = 'block';
       }
@@ -345,7 +375,7 @@ searchInput.addEventListener('input', () => {
 });
 
 document.addEventListener('click', (e) => {
-  if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
+  if (searchInput && suggestionsBox && !searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
     suggestionsBox.style.display = 'none';
   }
 });
@@ -362,8 +392,13 @@ searchInput?.addEventListener('keydown', (e) => {
   }
 });
 
-// ---- Init ----
-document.addEventListener('DOMContentLoaded', () => {
-  // loadCurrentUser();
-  refreshWatchlist();
+document.getElementById('wlFilterPills')?.addEventListener('click', (e) => {
+  const pill = e.target.closest('.filter-pill');
+  if (!pill) return;
+  document.querySelectorAll('.filter-pill').forEach((p) => p.classList.remove('active'));
+  pill.classList.add('active');
+  activeFilter = pill.dataset.filter || 'all';
+  renderWatchlist();
 });
+
+document.addEventListener('DOMContentLoaded', refreshWatchlist);
