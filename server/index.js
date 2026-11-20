@@ -9,19 +9,20 @@ import walletRouter from './routes/wallet.js';
 import transactionsRouter from './routes/transactions.js';
 import portfolioRouter from './routes/portfolio.js';
 import tradingRouter from './routes/trading.js';
-import watchlistRouter from './routes/watchlist.js'; // <-- Add this
+import watchlistRouter from './routes/watchlist.js';
 import uploadsRouter from './routes/uploads.js';
 import passwordRouter from './routes/password.js';
+import announcementsRouter from './routes/announcements.js';
+import exportsRouter from './routes/exports.js';
 import adminRouter from './routes/admin.js';
 import { requireAdmin, requireAuth } from './middleware/requireAuth.js';
-
 import { env } from './config/env.js';
 
 const app = express();
 
 app.disable('x-powered-by');
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(express.json({ limit: '32kb' }));
+app.use(express.json({ limit: '64kb' }));
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
@@ -35,9 +36,11 @@ app.use('/api/wallet', walletRouter);
 app.use('/api/transactions', transactionsRouter);
 app.use('/api/portfolio', portfolioRouter);
 app.use('/api/trading', tradingRouter);
-app.use('/api/watchlist', watchlistRouter); // <-- Mount watchlist
+app.use('/api/watchlist', watchlistRouter);
 app.use('/api/uploads', uploadsRouter);
 app.use('/api/auth', passwordRouter);
+app.use('/api/announcements', announcementsRouter);
+app.use('/api/exports', exportsRouter);
 app.use('/api/admin', adminRouter);
 
 app.use('/api', (_req, res) => {
