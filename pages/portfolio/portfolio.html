@@ -1,31 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="apple-touch-icon" sizes="180x180" href="/Images/Favicon/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="Images/Favicon/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="Images/Favicon/favicon-16x16.png">
-    <link rel="manifest" href="Images/Favicon/site.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="/Images/Favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="../../Images/Favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="../../Images/Favicon/favicon-16x16.png">
+  <link rel="manifest" href="../../Images/Favicon/site.webmanifest">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LadaStocks</title>
+  <title>LadaStocks - Portfolio</title>
   <link rel="stylesheet" href="portfolio.css" />
-  <!-- Reusable navbar component (renders the header, active link,
-       username and session guard). Needs no config. -->
   <script src="../shared/navbar.js" defer></script>
-  <!-- Switched to jsDelivr CDN (more reliable) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="portfolio.js" defer></script>
 </head>
 <body>
-  <!-- The old copy-pasted <header> block was replaced by this one line.
-       It renders the navbar and marks "Portfolio" active automatically. -->
   <lada-navbar></lada-navbar>
 
   <section class="content">
-    <h1>Portfolio</h1>
+    <div class="page-head">
+      <div>
+        <h1>Portfolio</h1>
+        <p class="page-subtitle">Real-time holdings valuation, unrealized &amp; realized P/L, sector allocation, and cost basis comparison.</p>
+      </div>
+      <div class="page-actions">
+        <a class="export-btn" href="/api/exports/holdings">Export Holdings CSV</a>
+      </div>
+    </div>
     <hr>
-    <h2>Your Stock Portfolio</h2>
+
     <div class="summary-strip" id="summaryStrip">
+      <div class="summary-card">
+        <span class="summary-label">Total Net Worth</span>
+        <span class="summary-value" id="netWorth">$0.00</span>
+      </div>
       <div class="summary-card">
         <span class="summary-label">Portfolio Value</span>
         <span class="summary-value" id="portfolioValue">$0.00</span>
@@ -35,6 +42,14 @@
         <span class="summary-value" id="cashBalance">$0.00</span>
       </div>
       <div class="summary-card">
+        <span class="summary-label">Unrealized P/L</span>
+        <span class="summary-value" id="unrealizedPnl">$0.00</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Realized P/L</span>
+        <span class="summary-value" id="realizedPnl">$0.00</span>
+      </div>
+      <div class="summary-card">
         <span class="summary-label">Today's Change</span>
         <span class="summary-value" id="todaysChange">$0.00</span>
       </div>
@@ -42,11 +57,25 @@
         <span class="summary-label">Total Return</span>
         <span class="summary-value" id="totalReturn">0.00%</span>
       </div>
+      <div class="summary-card">
+        <span class="summary-label">Total Cost Basis</span>
+        <span class="summary-value" id="totalCostBasis">$0.00</span>
+      </div>
     </div>
-    <div class="chart-panel" style="margin-top:24px;">
-      <h2>Portfolio Value Over Time</h2>
-      <canvas id="portfolioChart" height="90"></canvas>
+
+    <div class="analytics-grid">
+      <div class="chart-panel">
+        <h2>30-Day Portfolio Value vs. Cost Basis</h2>
+        <canvas id="portfolioChart" height="95"></canvas>
+      </div>
+      <div class="chart-panel">
+        <h2>Sector Allocation</h2>
+        <div id="sectorBreakdown" class="sector-list">
+          <p class="details-empty">Holdings allocation will appear once you own shares.</p>
+        </div>
+      </div>
     </div>
+
     <div class="lower-grid">
       <div class="watchlist-panel">
         <h2>Holdings</h2>
@@ -54,8 +83,16 @@
           <table class="watchlist-table">
             <thead>
               <tr>
-                <th>Symbol</th><th>Company</th><th>Price</th><th>Qty</th>
-                <th>Value</th><th>Capital Gains</th><th>Currency</th><th>Return</th>
+                <th>Symbol</th>
+                <th>Company</th>
+                <th>Sector</th>
+                <th>Price</th>
+                <th>Qty</th>
+                <th>Avg Cost</th>
+                <th>Market Value</th>
+                <th>Weight</th>
+                <th>Unrealized P/L</th>
+                <th>Daily</th>
               </tr>
             </thead>
             <tbody id="watchlistBody"></tbody>
@@ -63,8 +100,10 @@
         </div>
       </div>
       <div class="details-panel">
-        <h2>Details</h2>
-        <div class="details-body" id="detailsBody"></div>
+        <h2>Position Details</h2>
+        <div class="details-body" id="detailsBody">
+          <p class="details-empty">Select a holding to inspect cost basis, weight, and jump to trading.</p>
+        </div>
       </div>
     </div>
   </section>

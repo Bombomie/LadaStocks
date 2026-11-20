@@ -1,50 +1,39 @@
-// portfolio.js
+// pages/portfolio/portfolio.js
 
-const marketChartCtx = document.getElementById('portfolioChart');
 let chartInstance = null;
+let holdings = [];
+let selectedSymbol = null;
 
-async function loadCurrentUser() {
-  try {
-    const response = await fetch('/api/auth/me', {
-      method: 'GET', credentials: 'include', headers: { Accept: 'application/json' },
-    });
-    if (response.status === 401) return window.location.replace('../authentication/login/login.html');
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.message);
-    const el = document.querySelector('.username');
-    if (el) el.textContent = data.user.username || 'User';
-  } catch (err) {
-    console.error('Auth error:', err);
+const esc = (v) =>
+  String(v ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[c]));
+
+const fmtUSD = (n) => Number(n ?? 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+const fmtSigned = (n, opts = {}) => `${Number(n) > 0 ? '+' : ''}${Number(n ?? 0).toLocaleString('en-US', opts)}`;
+
+async function fetchJson(url) {
+  const res = await fetch(url, { credentials: 'include' });
+  if (res.status === 401) {
     window.location.replace('../authentication/login/login.html');
+    throw new Error('Unauthorized');
   }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.detail || data?.message || 'Request failed');
+  return data;
 }
 
-async function fetchHoldings() {
-  const res = await fetch('/api/portfolio/holdings', { credentials: 'include' });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    console.error('Holdings fetch failed:', res.status, data);
-    throw new Error(data.detail || data.message || 'Could not load holdings');
-  }
-  return res.json();
-}
-
-async function fetchWalletBalance() {
-  const res = await fetch('/api/trading/balance', { credentials: 'include' });
-  if (!res.ok) return 0;
-  const data = await res.json();
-  return data.balance;
-}
-
-// Fetch all quotes in parallel using the existing single-symbol endpoint
 async function fetchQuotes(symbols) {
-  const quotePromises = symbols.map(sym =>
-    fetch(`/api/stocks/quote/${sym}`, { credentials: 'include' })
-      .then(r => r.ok ? r.json() : null)
+  const quotePromises = symbols.map((sym) =>
+    fetch(`/api/stocks/quote/${encodeURIComponent(sym)}`, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
       .catch(() => null)
   );
   const results = await Promise.all(quotePromises);
-
   const map = {};
   symbols.forEach((sym, i) => {
     map[sym] = results[i]?.data || {};
@@ -52,57 +41,73 @@ async function fetchQuotes(symbols) {
   return map;
 }
 
-// Fetch historical candles using the existing candles endpoint
-async function fetchHistory(symbol, outputsize = 90) {
-  const res = await fetch(`/api/stocks/candles/${symbol}?interval=1day&outputsize=${outputsize}`, {
-    credentials: 'include',
-  });
-  if (!res.ok) return [];
-  const data = await res.json();
-  // candleData is already oldest -> newest based on the route implementation
-  return data?.data || [];
-}
+function renderSummary(summary) {
+  const {
+    totalValue = 0,
+    portfolioValue = 0,
+    cashBalance = 0,
+    totalCost = 0,
+    unrealizedPnl = 0,
+    realizedPnl = 0,
+    todaysChange = 0,
+    totalReturnPct = 0,
+  } = summary || {};
 
-const fmtUSD = (n) => (n ?? 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-const fmtSigned = (n, opts = {}) => `${n > 0 ? '+' : ''}${(n ?? 0).toLocaleString('en-US', opts)}`;
-
-let holdings = [];
-let selectedSymbol = null;
-
-function computeSummary() {
-  const portfolioValue = holdings.reduce((s, h) => s + h.value, 0);
-  const totalCost = holdings.reduce((s, h) => s + h.avgBuyPrice * h.quantity, 0);
-  const todaysChange = holdings.reduce((s, h) => s + h.value * (h.changePct / 100), 0);
-  const totalReturnPct = totalCost ? ((portfolioValue - totalCost) / totalCost) * 100 : 0;
-  return { portfolioValue, totalCost, todaysChange, totalReturnPct };
-}
-
-function renderSummary(cashBalance) {
-  const { portfolioValue, todaysChange, totalReturnPct } = computeSummary();
-
+  document.getElementById('netWorth').textContent = fmtUSD(totalValue);
   document.getElementById('portfolioValue').textContent = fmtUSD(portfolioValue);
   document.getElementById('cashBalance').textContent = fmtUSD(cashBalance);
+  document.getElementById('totalCostBasis').textContent = fmtUSD(totalCost);
 
-  const changeEl = document.getElementById('todaysChange');
-  changeEl.textContent = fmtSigned(todaysChange, { style: 'currency', currency: 'USD' });
-  changeEl.classList.toggle('up', todaysChange >= 0);
-  changeEl.classList.toggle('down', todaysChange < 0);
+  const setSignedCard = (id, val, isPct = false) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = isPct
+      ? `${fmtSigned(val, { maximumFractionDigits: 2 })}%`
+      : fmtSigned(val, { style: 'currency', currency: 'USD' });
+    el.classList.toggle('up', val >= 0);
+    el.classList.toggle('down', val < 0);
+  };
 
-  const returnEl = document.getElementById('totalReturn');
-  returnEl.textContent = `${fmtSigned(totalReturnPct, { maximumFractionDigits: 2 })}%`;
-  returnEl.classList.toggle('up', totalReturnPct >= 0);
-  returnEl.classList.toggle('down', totalReturnPct < 0);
+  setSignedCard('unrealizedPnl', unrealizedPnl);
+  setSignedCard('realizedPnl', realizedPnl);
+  setSignedCard('todaysChange', todaysChange);
+  setSignedCard('totalReturn', totalReturnPct, true);
 }
 
-function renderHoldings() {
+function renderSectors(sectors) {
+  const container = document.getElementById('sectorBreakdown');
+  if (!container) return;
+
+  if (!sectors || !sectors.length) {
+    container.innerHTML = '<p class="details-empty">Holdings allocation will appear once you own shares.</p>';
+    return;
+  }
+
+  container.innerHTML = sectors
+    .map(
+      (s) => `
+      <div class="sector-item">
+        <div class="sector-row-top">
+          <span>${esc(s.sector || 'Unclassified')}</span>
+          <span>${fmtUSD(s.value)} (${Number(s.weightPct || 0).toFixed(1)}%)</span>
+        </div>
+        <div class="sector-track">
+          <div class="sector-fill" style="width:${Math.min(100, Math.max(2, Number(s.weightPct || 0)))}%"></div>
+        </div>
+      </div>`
+    )
+    .join('');
+}
+
+function renderHoldings(portfolioValue) {
   const tbody = document.getElementById('watchlistBody');
   tbody.innerHTML = '';
 
   if (!holdings.length) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">
-          You don't own any stocks yet. Visit the Charts page to make your first trade.
+        <td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px;">
+          You don't own any stocks yet. Visit the Charts page to place your first trade.
         </td>
       </tr>`;
     return;
@@ -110,100 +115,109 @@ function renderHoldings() {
 
   holdings.forEach((h) => {
     const isUp = h.changePct >= 0;
+    const isPnlUp = h.capitalGains >= 0;
+    const weightPct = portfolioValue > 0 ? (h.value / portfolioValue) * 100 : 0;
+
     const row = document.createElement('tr');
     row.className = h.symbol === selectedSymbol ? 'selected' : '';
     row.innerHTML = `
-      <td class="symbol">${h.symbol}</td>
-      <td class="company">${h.company}</td>
+      <td class="symbol">${esc(h.symbol)}</td>
+      <td class="company" title="${esc(h.company)}">${esc(h.company)}</td>
+      <td>${esc(h.sector || 'Unclassified')}</td>
       <td>${fmtUSD(h.price)}</td>
       <td>${h.quantity}</td>
+      <td>${fmtUSD(h.avgBuyPrice)}</td>
       <td>${fmtUSD(h.value)}</td>
-      <td class="change ${h.capitalGains >= 0 ? 'up' : 'down'}">${fmtSigned(h.capitalGains, { style: 'currency', currency: 'USD' })}</td>
-      <td>${h.currency || 'USD'}</td>
+      <td>${weightPct.toFixed(1)}%</td>
+      <td class="change ${isPnlUp ? 'up' : 'down'}">${fmtSigned(h.capitalGains, { style: 'currency', currency: 'USD' })}</td>
       <td class="change ${isUp ? 'up' : 'down'}">${fmtSigned(h.changePct, { maximumFractionDigits: 2 })}%</td>
     `;
     row.addEventListener('click', () => {
       selectedSymbol = h.symbol;
-      renderHoldings();
-      renderDetails();
+      renderHoldings(portfolioValue);
+      renderDetails(portfolioValue);
     });
     tbody.appendChild(row);
   });
 }
 
-function renderDetails() {
+function renderDetails(portfolioValue) {
   const container = document.getElementById('detailsBody');
-  const h = holdings.find((x) => x.symbol === selectedSymbol);
+  const h = holdings.find((x) => x.symbol === selectedSymbol) || holdings[0];
 
   if (!h) {
-    container.innerHTML = `<p class="details-empty">Select a holding to see details.</p>`;
+    container.innerHTML = '<p class="details-empty">Select a holding to inspect cost basis, weight, and jump to trading.</p>';
     return;
   }
 
-  const capitalGainsPct = h.avgBuyPrice > 0
-    ? ((h.price - h.avgBuyPrice) / h.avgBuyPrice) * 100
-    : 0;
+  selectedSymbol = h.symbol;
+  const costBasis = h.avgBuyPrice * h.quantity;
+  const returnPct = costBasis > 0 ? ((h.value - costBasis) / costBasis) * 100 : 0;
+  const weightPct = portfolioValue > 0 ? (h.value / portfolioValue) * 100 : 0;
 
   container.innerHTML = `
-    <div class="stock-name">${h.company}</div>
-    <div class="stock-symbol">${h.symbol}</div>
+    <div class="stock-name">${esc(h.company)}</div>
+    <div class="stock-symbol">${esc(h.symbol)} &middot; ${esc(h.sector || 'Unclassified')}</div>
     <div class="stock-price">${fmtUSD(h.price)}</div>
     <div class="stock-change ${h.changePct >= 0 ? 'up' : 'down'}">${fmtSigned(h.changePct, { maximumFractionDigits: 2 })}% today</div>
     <div class="details-stats">
-      <div><span>Quantity</span><span>${h.quantity}</span></div>
-      <div><span>Avg. Cost</span><span>${fmtUSD(h.avgBuyPrice)}</span></div>
+      <div><span>Shares Owned</span><span>${h.quantity}</span></div>
+      <div><span>Portfolio Weight</span><span>${weightPct.toFixed(2)}%</span></div>
+      <div><span>Avg. Cost / Share</span><span>${fmtUSD(h.avgBuyPrice)}</span></div>
+      <div><span>Cost Basis</span><span>${fmtUSD(costBasis)}</span></div>
       <div><span>Market Value</span><span>${fmtUSD(h.value)}</span></div>
-      <div><span>Capital Gains</span><span class="${h.capitalGains >= 0 ? 'up' : 'down'}" style="color: ${h.capitalGains >= 0 ? 'var(--accent-up)' : 'var(--accent-down)'};">${fmtSigned(h.capitalGains, { style: 'currency', currency: 'USD' })}</span></div>
-      <div><span>Return</span><span class="${capitalGainsPct >= 0 ? 'up' : 'down'}" style="color: ${capitalGainsPct >= 0 ? 'var(--accent-up)' : 'var(--accent-down)'};">${fmtSigned(capitalGainsPct, { maximumFractionDigits: 2 })}%</span></div>
+      <div><span>Unrealized P/L</span><span style="color:${h.capitalGains >= 0 ? 'var(--accent-up)' : 'var(--accent-down)'};">${fmtSigned(h.capitalGains, { style: 'currency', currency: 'USD' })} (${fmtSigned(returnPct, { maximumFractionDigits: 2 })}%)</span></div>
     </div>
-    <a href="../charts/charts.html" class="view-chart-link">Trade on Charts &rarr;</a>
+    <a href="../charts/charts.html?symbol=${encodeURIComponent(h.symbol)}" class="view-chart-link">Trade ${esc(h.symbol)} on Charts &rarr;</a>
   `;
 }
 
-async function renderChart() {
-  if (!holdings.length) {
-    if (chartInstance) {
-      chartInstance.destroy();
-      chartInstance = null;
-    }
-    return;
+function renderChart(history) {
+  const ctx = document.getElementById('portfolioChart');
+  if (!ctx || typeof Chart === 'undefined') return;
+  if (chartInstance) {
+    chartInstance.destroy();
+    chartInstance = null;
   }
+  if (!history || !history.length) return;
 
-  // Fetch all histories in parallel
-  const histories = await Promise.all(holdings.map(h => fetchHistory(h.symbol)));
+  const labels = history.map((d) => d.date);
+  const values = history.map((d) => d.value);
+  const costs = history.map((d) => d.costBasis);
 
-  // Use the longest history as the label set
-  const labels = histories
-    .reduce((longest, h) => h.length > longest.length ? h : longest, [])
-    .map(v => v.time);
-
-  const palette = ['#FFC349', '#4ade80', '#60a5fa', '#f87171', '#a78bfa', '#fbbf24', '#34d399', '#f472b6'];
-
-  const datasets = holdings.map((h, i) => {
-    const hist = histories[i] || [];
-    return {
-      label: h.symbol,
-      data: hist.map(v => parseFloat(v.close) * h.quantity),
-      borderColor: palette[i % palette.length],
-      backgroundColor: palette[i % palette.length] + '20',
-      fill: true,
-      tension: 0.25,
-    };
-  });
-
-  if (chartInstance) chartInstance.destroy();
-  chartInstance = new Chart(marketChartCtx, {
+  chartInstance = new Chart(ctx, {
     type: 'line',
-    data: { labels, datasets },
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Market Value',
+          data: values,
+          borderColor: '#FFC349',
+          backgroundColor: 'rgba(255, 195, 73, 0.16)',
+          fill: true,
+          tension: 0.25,
+          pointRadius: 2,
+        },
+        {
+          label: 'Cost Basis',
+          data: costs,
+          borderColor: '#39d0d8',
+          borderDash: [6, 4],
+          fill: false,
+          tension: 0,
+          pointRadius: 0,
+        },
+      ],
+    },
     options: {
       responsive: true,
       interaction: { mode: 'index', intersect: false },
       scales: {
         y: {
-          stacked: true,
           ticks: {
             color: '#fff',
-            callback: (v) => '$' + v.toLocaleString('en-US'),
+            callback: (v) => `$${Number(v).toLocaleString('en-US')}`,
           },
           grid: { color: 'rgba(255,255,255,0.08)' },
         },
@@ -216,7 +230,7 @@ async function renderChart() {
         legend: { labels: { color: '#fff' } },
         tooltip: {
           callbacks: {
-            label: (ctx) => ` ${ctx.dataset.label}: ${fmtUSD(ctx.parsed.y)}`,
+            label: (c) => ` ${c.dataset.label}: ${fmtUSD(c.parsed.y)}`,
           },
         },
       },
@@ -225,53 +239,47 @@ async function renderChart() {
 }
 
 async function init() {
-  // Show loading states
-  document.getElementById('portfolioValue').textContent = 'Loading...';
-  document.getElementById('cashBalance').textContent = 'Loading...';
-  document.getElementById('todaysChange').textContent = 'Loading...';
-  document.getElementById('totalReturn').textContent = 'Loading...';
-
-  // loadCurrentUser();
   try {
-    const [raw, cashBalance] = await Promise.all([
-      fetchHoldings(),
-      fetchWalletBalance(),
+    const [summary, rawHoldings, history] = await Promise.all([
+      fetchJson('/api/portfolio/summary'),
+      fetchJson('/api/portfolio/holdings'),
+      fetchJson('/api/portfolio/history').catch(() => []),
     ]);
 
-    if (raw.length) {
-      const symbols = raw.map(h => h.symbol);
-      const quotes = await fetchQuotes(symbols);
-
-      holdings = raw.map(h => {
+    if (Array.isArray(rawHoldings) && rawHoldings.length) {
+      const quotes = await fetchQuotes(rawHoldings.map((h) => h.symbol));
+      holdings = rawHoldings.map((h) => {
         const q = quotes[h.symbol] || {};
-        const price = parseFloat(q?.currentPrice || q?.close || q?.price || 0);
+        const price = parseFloat(q?.currentPrice || q?.close || q?.price || h.avg_buy_price || 0);
         const changePct = parseFloat(q?.change || q?.percent_change || 0);
+        const avgBuy = parseFloat(h.avg_buy_price || 0);
+        const value = price * h.quantity;
         return {
           symbol: h.symbol,
           company: h.company || q?.name || h.symbol,
-          currency: q?.currency || 'USD',
+          sector: h.sector || 'Unclassified',
           quantity: h.quantity,
-          avgBuyPrice: h.avg_buy_price,  // map from snake_case to camelCase
+          avgBuyPrice: avgBuy,
           price,
           changePct,
-          value: price * h.quantity,
-          capitalGains: (price - h.avg_buy_price) * h.quantity,
+          value,
+          capitalGains: (price - avgBuy) * h.quantity,
         };
       });
+      if (!selectedSymbol) selectedSymbol = holdings[0].symbol;
     } else {
       holdings = [];
     }
 
-    renderSummary(cashBalance);
-    renderHoldings();
-    renderDetails();
-    await renderChart();
+    const totalPortfolioVal = holdings.reduce((s, h) => s + h.value, 0) || summary?.portfolioValue || 0;
+    renderSummary(summary);
+    renderSectors(summary?.sectorAllocation || []);
+    renderHoldings(totalPortfolioVal);
+    renderDetails(totalPortfolioVal);
+    renderChart(history);
   } catch (err) {
+    if (err.message === 'Unauthorized') return;
     console.error('Portfolio load error:', err);
-    document.getElementById('portfolioValue').textContent = 'Error';
-    document.getElementById('cashBalance').textContent = 'Error';
-    document.getElementById('todaysChange').textContent = 'Error';
-    document.getElementById('totalReturn').textContent = 'Error';
   }
 }
 
