@@ -1,0 +1,1111 @@
+-- ============================================================================
+-- LadaStocks Migration: Admin Dashboard Modules, Announcements, Audit Logs,
+-- Trade Review / Realized P/L, Stock Status, and Portfolio/Report RPCs
+-- Run this in Supabase SQL Editor AFTER supabase_schema + admin_access + target-price.
+-- ============================================================================
+
+begin;
+
+-- 1. Ensure wallet_transactions exists (matches routes/wallet.js & transactions.js)
+create table if not exists public.wallet_transactions (
+  wallet_tx_id uuid default gen_random_uuid() primary key,
+  user_id uuid not null references public.users(user_id) on delete cascade,
+  transaction_type text not null check (transaction_type in ('deposit', 'withdrawal')),
+  amount numeric(14,2) not null check (amount > 0),
+  confirmation_id text,
+  reason text,
+  created_at timestamp with time zone default now()
+);
+
+alter table public.wallet_transactions
+  add column if not exists confirmation_id text,
+  add column if not exists reason text;
+
+alter table public.wallet_transactions enable row level security;
+
+drop policy if exists "Users can view own wallet transactions" on public.wallet_transactions;
+create policy "Users can view own wallet transactions"
+  on public.wallet_transactions for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own wallet transactions" on public.wallet_transactions;
+create policy "Users can insert own wallet transactions"
+  on public.wallet_transactions for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Active account required" on public.wallet_transactions;
+create policy "Active account required"
+  on public.wallet_transactions as restrictive for all to authenticated
+  using (not (select ladastocks_private.account_is_suspended()))
+  with check (not (select ladastocks_private.account_is_suspended()));
+
+-- 2. Extend stocks table with operational status & timestamps
+alter table public.stocks
+  add column if not exists status text not null default 'active',
+  add column if not exists created_at timestamp with time zone default now();
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'stocks_status_check'
+  ) then
+    alter table public.stocks
+      add constraint stocks_status_check check (status in ('active', 'halted', 'disabled'));
+  end if;
+end;
+$$;
+
+-- 3. Extend transactions table with confirmation_id, realized_pnl, and admin review fields
+alter table public.transactions
+  add column if not exists confirmation_id text,
+  add column if not exists realized_pnl numeric(14,2),
+  add column if not exists review_status text not null default 'executed',
+  add column if not exists review_note text,
+  add column if not exists reviewed_at timestamp with time zone;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'transactions_review_status_check'
+  ) then
+    alter table public.transactions
+      add constraint transactions_review_status_check
+      check (review_status in ('executed', 'approved', 'flagged', 'rejected'));
+  end if;
+end;
+$$;
+
+-- Allow users to update their own users.avatar_url/username (already granted by existing policy),
+-- and ensure admins can read everything via SECURITY DEFINER RPCs.
+
+-- 4. Admin Announcements table (visible to active authenticated users)
+create table if not exists public.announcements (
+  announcement_id uuid default gen_random_uuid() primary key,
+  admin_id uuid references public.admins(admin_id) on delete set null,
+  title text not null,
+  message text not null,
+  severity text not null default 'info' check (severity in ('info', 'warning', 'success', 'urgent')),
+  is_pinned boolean not null default false,
+  is_active boolean not null default true,
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
+);
+
+alter table public.announcements enable row level security;
+
+drop policy if exists "Authenticated users can view active announcements" on public.announcements;
+create policy "Authenticated users can view active announcements"
+  on public.announcements for select
+  to authenticated
+  using (is_active = true and not (select ladastocks_private.account_is_suspended()));
+
+grant select on table public.announcements to authenticated;
+
+-- 5. Admin Audit Logs table (strictly accessible through SECURITY DEFINER RPCs)
+create table if not exists public.admin_audit_logs (
+  log_id uuid default gen_random_uuid() primary key,
+  admin_id uuid references public.admins(admin_id) on delete set null,
+  admin_username text,
+  category text not null default 'system',
+  action text not null,
+  target_type text,
+  target_id text,
+  details jsonb default '{}'::jsonb,
+  created_at timestamp with time zone default now()
+);
+
+create index if not exists idx_admin_audit_logs_created
+  on public.admin_audit_logs (created_at desc);
+
+alter table public.admin_audit_logs enable row level security;
+revoke all on public.admin_audit_logs from public, anon, authenticated;
+
+-- Helper to insert audit log safely inside SECURITY DEFINER functions
+create or replace function ladastocks_private.write_audit_log(
+  p_actor_id uuid,
+  p_category text,
+  p_action text,
+  p_target_type text default null,
+  p_target_id text default null,
+  p_details jsonb default '{}'::jsonb
+)
+returns uuid
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_username text;
+  v_log_id uuid;
+begin
+  select username into v_username from public.admins where admin_id = p_actor_id;
+  insert into public.admin_audit_logs (
+    admin_id, admin_username, category, action, target_type, target_id, details
+  ) values (
+    p_actor_id, coalesce(v_username, 'Admin'), p_category, p_action, p_target_type, p_target_id, coalesce(p_details, '{}'::jsonb)
+  ) returning log_id into v_log_id;
+  return v_log_id;
+end;
+$$;
+
+revoke all on function ladastocks_private.write_audit_log(uuid, text, text, text, text, jsonb) from public, anon, authenticated;
+
+-- ============================================================================
+-- Updated & New Admin RPCs
+-- ============================================================================
+
+-- A. Expanded lada_admin_users() including birth_date, avatar_url, and holding details
+create or replace function public.lada_admin_users()
+returns jsonb
+language plpgsql stable security definer set search_path = ''
+as $$
+begin
+  if ladastocks_private.current_admin_id() is null then
+    raise insufficient_privilege using message = 'Administrator access required.';
+  end if;
+
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'user_id', u.user_id,
+      'username', u.username,
+      'email', u.email,
+      'birth_date', u.birth_date,
+      'avatar_url', u.avatar_url,
+      'created_at', u.created_at,
+      'last_login', u.last_login,
+      'status', case when a.user_id is null then 'active' else 'suspended' end,
+      'isAdmin', exists (select 1 from public.admins where auth_user_id = u.user_id and role = 'admin'),
+      'wallet', case when w.user_id is not null then
+        jsonb_build_object('balance', w.balance, 'starting_balance', w.starting_balance) end,
+      'holdings', coalesce(h.items, '[]'::jsonb),
+      'trade_count', coalesce(txc.cnt, 0),
+      'trade_volume', coalesce(txc.vol, 0)
+    ) order by u.username, u.user_id)
+    from public.users u
+    left join public.wallets w on w.user_id = u.user_id
+    left join ladastocks_private.suspended_accounts a on a.user_id = u.user_id
+    left join lateral (
+      select jsonb_agg(jsonb_build_object(
+        'symbol', s.symbol,
+        'company_name', s.company_name,
+        'sector', coalesce(s.sector, 'Unclassified'),
+        'quantity', h.quantity,
+        'avg_buy_price', h.avg_buy_price,
+        'price', coalesce(p.close_price, h.avg_buy_price)
+      ) order by s.symbol) as items
+      from public.holdings h
+      join public.stocks s on s.stock_id = h.stock_id
+      left join lateral (
+        select close_price from public.stock_prices
+        where stock_id = h.stock_id and close_price > 0
+        order by recorded_at desc, price_id desc limit 1
+      ) p on true
+      where h.user_id = u.user_id and h.quantity > 0
+    ) h on true
+    left join lateral (
+      select count(*)::int as cnt, coalesce(sum(total_amount), 0) as vol
+      from public.transactions t
+      where t.user_id = u.user_id
+    ) txc on true
+  ), '[]'::jsonb);
+end;
+$$;
+
+-- B. Update user status + write audit log
+create or replace function public.lada_admin_set_status(target_user_id uuid, new_status text)
+returns text
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  actor_id uuid := ladastocks_private.current_admin_id();
+  target_username text;
+begin
+  if actor_id is null then
+    raise insufficient_privilege using message = 'Administrator access required.';
+  end if;
+  if new_status is null or new_status not in ('active', 'suspended') then
+    raise sqlstate 'PT400' using message = 'Invalid account status.';
+  end if;
+
+  select username into target_username from public.users where user_id = target_user_id for no key update;
+  if not found then
+    raise sqlstate 'PT404' using message = 'User not found.';
+  end if;
+
+  if new_status = 'suspended' then
+    if exists (select 1 from public.admins where auth_user_id = target_user_id and role = 'admin') then
+      raise sqlstate 'PT409' using message = 'Administrator accounts cannot be suspended from the dashboard.';
+    end if;
+    insert into ladastocks_private.suspended_accounts (user_id) values (target_user_id)
+    on conflict (user_id) do nothing;
+  else
+    delete from ladastocks_private.suspended_accounts where user_id = target_user_id;
+  end if;
+
+  perform ladastocks_private.write_audit_log(
+    actor_id,
+    'users',
+    case when new_status = 'suspended' then 'USER_SUSPENDED' else 'USER_ACTIVATED' end,
+    'user',
+    target_user_id::text,
+    jsonb_build_object('username', target_username, 'status', new_status)
+  );
+
+  return new_status;
+end;
+$$;
+
+-- C. Adjust user wallet with optional reason + write wallet_transactions + audit log
+create or replace function public.lada_admin_adjust_wallet(
+  target_user_id uuid,
+  delta numeric,
+  request_id uuid,
+  adjust_reason text default 'Admin dashboard'
+)
+returns numeric
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  actor_id uuid := ladastocks_private.current_admin_id();
+  old_balance numeric;
+  new_balance numeric;
+  target_username text;
+  clean_reason text := coalesce(nullif(trim(adjust_reason), ''), 'Admin dashboard');
+begin
+  if actor_id is null then
+    raise insufficient_privilege using message = 'Administrator access required.';
+  end if;
+  if request_id is null or delta is null or delta = 0 or
+      abs(delta) > 999999999999.99 or delta <> round(delta, 2) then
+    raise sqlstate 'PT400' using message = 'Enter a valid amount with up to two decimal places.';
+  end if;
+
+  select u.username into target_username from public.users u where u.user_id = target_user_id;
+  select balance into old_balance from public.wallets where user_id = target_user_id for update;
+  if not found then
+    raise sqlstate 'PT404' using message = 'Wallet not found.';
+  end if;
+
+  insert into public.bonuses (bonus_id, user_id, admin_id, bonus_type, amount, reason)
+    values (request_id, target_user_id, actor_id, 'admin_wallet_adjustment', delta, clean_reason)
+    on conflict (bonus_id) do nothing;
+  if not found then
+    if exists (select 1 from public.bonuses where bonus_id = request_id
+      and user_id = target_user_id and admin_id = actor_id and amount = delta
+      and bonus_type = 'admin_wallet_adjustment') then
+      return old_balance;
+    end if;
+    raise sqlstate 'PT409' using message = 'Request ID is already in use.';
+  end if;
+
+  new_balance := old_balance + delta;
+  if new_balance < 0 then
+    raise sqlstate 'PT409' using message = 'Debit exceeds the available cash balance.';
+  end if;
+  if new_balance > 999999999999.99 then
+    raise sqlstate 'PT409' using message = 'Credit exceeds the maximum cash balance.';
+  end if;
+
+  update public.wallets set balance = new_balance, updated_at = now() where user_id = target_user_id;
+
+  insert into public.wallet_transactions (user_id, transaction_type, amount, confirmation_id, reason)
+  values (
+    target_user_id,
+    case when delta > 0 then 'deposit' else 'withdrawal' end,
+    abs(delta),
+    'ADM-' || upper(substring(request_id::text, 1, 8)),
+    clean_reason
+  );
+
+  perform ladastocks_private.write_audit_log(
+    actor_id,
+    'wallet',
+    case when delta > 0 then 'WALLET_CREDIT' else 'WALLET_DEBIT' end,
+    'user',
+    target_user_id::text,
+    jsonb_build_object('username', target_username, 'delta', delta, 'new_balance', new_balance, 'reason', clean_reason)
+  );
+
+  return new_balance;
+end;
+$$;
+
+-- D. Admin update locked profile fields (username, email, birth_date)
+create or replace function public.lada_admin_update_profile(
+  target_user_id uuid,
+  new_username text default null,
+  new_email text default null,
+  new_birth_date date default null
+)
+returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  actor_id uuid := ladastocks_private.current_admin_id();
+  cur_row public.users%rowtype;
+  v_username text;
+  v_email text;
+  v_birth_date date;
+begin
+  if actor_id is null then
+    raise insufficient_privilege using message = 'Administrator access required.';
+  end if;
+
+  select * into cur_row from public.users where user_id = target_user_id for update;
+  if not found then
+    raise sqlstate 'PT404' using message = 'User not found.';
+  end if;
+
+  v_username := coalesce(nullif(trim(new_username), ''), cur_row.username);
+  v_email := coalesce(nullif(lower(trim(new_email)), ''), cur_row.email);
+  v_birth_date := coalesce(new_birth_date, cur_row.birth_date);
+
+  if length(v_username) < 1 or length(v_username) > 30 then
+    raise sqlstate 'PT400' using message = 'Username must be 1-30 characters.';
+  end if;
+
+  update public.users
+  set username = v_username,
+      email = v_email,
+      birth_date = v_birth_date
+  where user_id = target_user_id;
+
+  perform ladastocks_private.write_audit_log(
+    actor_id,
+    'users',
+    'USER_PROFILE_UPDATED',
+    'user',
+    target_user_id::text,
+    jsonb_build_object(
+      'old_email', cur_row.email, 'new_email', v_email,
+      'old_birth_date', cur_row.birth_date, 'new_birth_date', v_birth_date,
+      'old_username', cur_row.username, 'new_username', v_username
+    )
+  );
+
+  return jsonb_build_object(
+    'user_id', target_user_id,
+    'username', v_username,
+    'email', v_email,
+    'birth_date', v_birth_date
+  );
+exception
+  when unique_violation then
+    raise sqlstate 'PT409' using message = 'Username or email is already in use by another account.';
+end;
+$$;
+
+-- E. Admin Overview RPC
+create or replace function public.lada_admin_overview()
+returns jsonb
+language plpgsql stable security definer set search_path = ''
+as $$
+declare
+  v_total_users int;
+  v_active_users int;
+  v_suspended_users int;
+  v_total_cash numeric;
+  v_total_portfolio numeric;
+  v_total_trades int;
+  v_total_volume numeric;
+  v_volume_24h numeric;
+  v_flagged_trades int;
+  v_active_stocks int;
+  v_halted_stocks int;
+begin
+  if ladastocks_private.current_admin_id() is null then
+    raise insufficient_privilege using message = 'Administrator access required.';
+  end if;
+
+  select count(*)::int into v_total_users from public.users;
+  select count(*)::int into v_suspended_users from ladastocks_private.suspended_accounts;
+  v_active_users := greatest(0, v_total_users - v_suspended_users);
+
+  select coalesce(sum(balance), 0) into v_total_cash from public.wallets;
+
+  select coalesce(sum(
+    h.quantity * coalesce((
+      select p.close_price from public.stock_prices p
+      where p.stock_id = h.stock_id and p.close_price > 0
+      order by p.recorded_at desc, p.price_id desc limit 1
+    ), h.avg_buy_price)
+  ), 0) into v_total_portfolio
+  from public.holdings h where h.quantity > 0;
+
+  select count(*)::int, coalesce(sum(total_amount), 0)
+  into v_total_trades, v_total_volume
+  from public.transactions;
+
+  select coalesce(sum(total_amount), 0)
+  into v_volume_24h
+  from public.transactions
+  where executed_at >= now() - interval '24 hours';
+
+  select count(*)::int into v_flagged_trades
+  from public.transactions
+  where review_status = 'flagged';
+
+  select
+    count(*) filter (where status = 'active')::int,
+    count(*) filter (where status <> 'active')::int
+  into v_active_stocks, v_halted_stocks
+  from public.stocks;
+
+  return jsonb_build_object(
+    'totalUsers', v_total_users,
+    'activeUsers', v_active_users,
+    'suspendedUsers', v_suspended_users,
+    'totalCash', v_total_cash,
+    'totalPortfolioValue', v_total_portfolio,
+    'totalTrades', v_total_trades,
+    'totalVolume', v_total_volume,
+    'volume24h', v_volume_24h,
+    'flaggedTrades', v_flagged_trades,
+    'activeStocks', coalesce(v_active_stocks, 0),
+    'haltedStocks', coalesce(v_halted_stocks, 0),
+    'recentTrades', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'transaction_id', t.transaction_id,
+        'username', u.username,
+        'symbol', s.symbol,
+        'transaction_type', t.transaction_type,
+        'quantity', t.quantity,
+        'price_per_share', t.price_per_share,
+        'total_amount', t.total_amount,
+        'review_status', t.review_status,
+        'executed_at', t.executed_at
+      ) order by t.executed_at desc)
+      from (select * from public.transactions order by executed_at desc limit 8) t
+      join public.users u on u.user_id = t.user_id
+      join public.stocks s on s.stock_id = t.stock_id
+    ), '[]'::jsonb),
+    'recentLogs', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'log_id', l.log_id,
+        'admin_username', l.admin_username,
+        'category', l.category,
+        'action', l.action,
+        'target_type', l.target_type,
+        'target_id', l.target_id,
+        'created_at', l.created_at
+      ) order by l.created_at desc)
+      from (select * from public.admin_audit_logs order by created_at desc limit 8) l
+    ), '[]'::jsonb)
+  );
+end;
+$$;
+
+-- F. Stock Management RPCs
+create or replace function public.lada_admin_stocks()
+returns jsonb
+language plpgsql stable security definer set search_path = ''
+as $$
+begin
+  if ladastocks_private.current_admin_id() is null then
+    raise insufficient_privilege using message = 'Administrator access required.';
+  end if;
+
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'stock_id', s.stock_id,
+      'symbol', s.symbol,
+      'company_name', s.company_name,
+      'exchange', s.exchange,
+      'sector', s.sector,
+      'status', s.status,
+      'created_at', s.created_at,
+      'latest_price', p.close_price,
+      'latest_volume', p.volume,
+      'holders_count', coalesce(h.holders_count, 0),
+      'shares_held', coalesce(h.shares_held, 0),
+      'trade_count', coalesce(tx.trade_count, 0),
+      'trade_volume', coalesce(tx.trade_volume, 0)
+    ) order by s.symbol)
+    from public.stocks s
+    left join lateral (
+      select close_price, volume from public.stock_prices
+      where stock_id = s.stock_id
+      order by recorded_at desc, price_id desc limit 1
+    ) p on true
+    left join lateral (
+      select count(*)::int as holders_count, coalesce(sum(quantity), 0)::int as shares_held
+      from public.holdings where stock_id = s.stock_id and quantity > 0
+    ) h on true
+    left join lateral (
+      select count(*)::int as trade_count, coalesce(sum(total_amount), 0) as trade_volume
+      from public.transactions where stock_id = s.stock_id
+    ) tx on true
+  ), '[]'::jsonb);
+end;
+$$;
+
+create or replace function public.lada_admin_upsert_stock(
+  p_stock_id uuid default null,
+  p_symbol text default null,
+  p_company_name text default null,
+  p_exchange text default null,
+  p_sector text default null,
+  p_status text default 'active'
+)
+returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  actor_id uuid := ladastocks_private.current_admin_id();
+  v_symbol text := upper(trim(coalesce(p_symbol, '')));
+  v_name text := trim(coalesce(p_company_name, ''));
+  v_status text := coalesce(nullif(trim(p_status), ''), 'active');
+  v_row public.stocks%rowtype;
+begin
+  if actor_id is null then
+    raise insufficient_privilege using message = 'Administrator access required.';
+  end if;
+  if v_status not in ('active', 'halted', 'disabled') then
+    raise sqlstate 'PT400' using message = 'Invalid stock status.';
+  end if;
+
+  if p_stock_id is null then
+    if v_symbol = '' or v_name = '' then
+      raise sqlstate 'PT400' using message = 'Symbol and company name are required.';
+    end if;
+    insert into public.stocks (symbol, company_name, exchange, sector, status)
+    values (v_symbol, v_name, nullif(trim(p_exchange), ''), nullif(trim(p_sector), ''), v_status)
+    returning * into v_row;
+
+    perform ladastocks_private.write_audit_log(
+      actor_id, 'stocks', 'STOCK_CREATED', 'stock', v_row.stock_id::text,
+      jsonb_build_object('symbol', v_row.symbol, 'company_name', v_row.company_name, 'status', v_row.status)
+    );
+  else
+    select * into v_row from public.stocks where stock_id = p_stock_id for update;
+    if not found then
+      raise sqlstate 'PT404' using message = 'Stock not found.';
+    end if;
+
+    update public.stocks
+    set symbol = coalesce(nullif(v_symbol, ''), symbol),
+        company_name = coalesce(nullif(v_name, ''), company_name),
+        exchange = case when p_exchange is null then exchange else nullif(trim(p_exchange), '') end,
+        sector = case when p_sector is null then sector else nullif(trim(p_sector), '') end,
+        status = v_status
+    where stock_id = p_stock_id
+    returning * into v_row;
+
+    perform ladastocks_private.write_audit_log(
+      actor_id, 'stocks', 'STOCK_UPDATED', 'stock', v_row.stock_id::text,
+      jsonb_build_object('symbol', v_row.symbol, 'company_name', v_row.company_name, 'status', v_row.status)
+    );
+  end if;
+
+  return to_jsonb(v_row);
+exception
+  when unique_violation then
+    raise sqlstate 'PT409' using message = 'A stock with that ticker symbol already exists.';
+end;
+$$;
+
+create or replace function public.lada_admin_delete_stock(p_stock_id uuid)
+returns boolean
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  actor_id uuid := ladastocks_private.current_admin_id();
+  v_symbol text;
+  v_holders int;
+begin
+  if actor_id is null then
+    raise insufficient_privilege using message = 'Administrator access required.';
+  end if;
+
+  select symbol into v_symbol from public.stocks where stock_id = p_stock_id;
+  if not found then
+    raise sqlstate 'PT404' using message = 'Stock not found.';
+  end if;
+
+  select count(*)::int into v_holders from public.holdings where stock_id = p_stock_id and quantity > 0;
+  if v_holders > 0 then
+    raise sqlstate 'PT409' using message = 'Cannot remove stock with active user holdings. Halt or disable it instead.';
+  end if;
+
+  delete from public.stocks where stock_id = p_stock_id;
+
+  perform ladastocks_private.write_audit_log(
+    actor_id, 'stocks', 'STOCK_DELETED', 'stock', p_stock_id::text,
+    jsonb_build_object('symbol', v_symbol)
+  );
+  return true;
+end;
+$$;
+
+-- G. Trade Management RPCs
+create or replace function public.lada_admin_trades(p_limit int default 200)
+returns jsonb
+language plpgsql stable security definer set search_path = ''
+as $$
+begin
+  if ladastocks_private.current_admin_id() is null then
+    raise insufficient_privilege using message = 'Administrator access required.';
+  end if;
+
+  return jsonb_build_object(
+    'stockTrades', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'transaction_id', t.transaction_id,
+        'user_id', t.user_id,
+        'username', u.username,
+        'email', u.email,
+        'symbol', s.symbol,
+        'company_name', s.company_name,
+        'transaction_type', t.transaction_type,
+        'quantity', t.quantity,
+        'price_per_share', t.price_per_share,
+        'total_amount', t.total_amount,
+        'realized_pnl', t.realized_pnl,
+        'confirmation_id', coalesce(t.confirmation_id, 'LS-' || upper(substring(t.transaction_id::text, 1, 8))),
+        'review_status', t.review_status,
+        'review_note', t.review_note,
+        'reviewed_at', t.reviewed_at,
+        'executed_at', t.executed_at
+      ) order by t.executed_at desc)
+      from (select * from public.transactions order by executed_at desc limit greatest(1, least(p_limit, 1000))) t
+      join public.users u on u.user_id = t.user_id
+      join public.stocks s on s.stock_id = t.stock_id
+    ), '[]'::jsonb),
+    'walletTrades', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'wallet_tx_id', coalesce(to_jsonb(w)->>'wallet_tx_id', to_jsonb(w)->>'transaction_id', to_jsonb(w)->>'id'),
+        'user_id', w.user_id,
+        'username', u.username,
+        'email', u.email,
+        'transaction_type', w.transaction_type,
+        'amount', w.amount,
+        'confirmation_id', coalesce(
+          w.confirmation_id,
+          'WL-' || upper(substring(coalesce(to_jsonb(w)->>'wallet_tx_id', to_jsonb(w)->>'transaction_id', to_jsonb(w)->>'id', md5(w.created_at::text)), 1, 8))
+        ),
+        'reason', w.reason,
+        'created_at', w.created_at
+      ) order by w.created_at desc)
+      from (select * from public.wallet_transactions order by created_at desc limit greatest(1, least(p_limit, 1000))) w
+      join public.users u on u.user_id = w.user_id
+    ), '[]'::jsonb)
+  );
+end;
+$$;
+
+create or replace function public.lada_admin_review_trade(
+  p_tx_id uuid,
+  p_review_status text,
+  p_review_note text default null
+)
+returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  actor_id uuid := ladastocks_private.current_admin_id();
+  v_tx public.transactions%rowtype;
+begin
+  if actor_id is null then
+    raise insufficient_privilege using message = 'Administrator access required.';
+  end if;
+  if p_review_status not in ('executed', 'approved', 'flagged', 'rejected') then
+    raise sqlstate 'PT400' using message = 'Invalid review status.';
+  end if;
+
+  update public.transactions
+  set review_status = p_review_status,
+      review_note = nullif(trim(coalesce(p_review_note, '')), ''),
+      reviewed_at = now()
+  where transaction_id = p_tx_id
+  returning * into v_tx;
+
+  if not found then
+    raise sqlstate 'PT404' using message = 'Transaction not found.';
+  end if;
+
+  perform ladastocks_private.write_audit_log(
+    actor_id, 'trades', 'TRADE_REVIEWED', 'transaction', p_tx_id::text,
+    jsonb_build_object('review_status', p_review_status, 'review_note', v_tx.review_note)
+  );
+
+  return to_jsonb(v_tx);
+end;
+$$;
+
+-- H. Portfolio Monitoring RPC
+create or replace function public.lada_admin_portfolios()
+returns jsonb
+language plpgsql stable security definer set search_path = ''
+as $$
+begin
+  if ladastocks_private.current_admin_id() is null then
+    raise insufficient_privilege using message = 'Administrator access required.';
+  end if;
+
+  return jsonb_build_object(
+    'userPortfolios', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'user_id', u.user_id,
+        'username', u.username,
+        'email', u.email,
+        'status', case when a.user_id is null then 'active' else 'suspended' end,
+        'cash_balance', coalesce(w.balance, 0),
+        'starting_balance', coalesce(w.starting_balance, 100000),
+        'holdings', coalesce(h.items, '[]'::jsonb),
+        'equity_value', coalesce(h.equity_value, 0),
+        'cost_basis', coalesce(h.cost_basis, 0),
+        'unrealized_pnl', coalesce(h.equity_value, 0) - coalesce(h.cost_basis, 0),
+        'net_worth', coalesce(w.balance, 0) + coalesce(h.equity_value, 0)
+      ) order by (coalesce(w.balance, 0) + coalesce(h.equity_value, 0)) desc)
+      from public.users u
+      left join public.wallets w on w.user_id = u.user_id
+      left join ladastocks_private.suspended_accounts a on a.user_id = u.user_id
+      left join lateral (
+        select
+          jsonb_agg(jsonb_build_object(
+            'symbol', s.symbol,
+            'company_name', s.company_name,
+            'sector', coalesce(s.sector, 'Unclassified'),
+            'quantity', h.quantity,
+            'avg_buy_price', h.avg_buy_price,
+            'current_price', coalesce(p.close_price, h.avg_buy_price),
+            'market_value', h.quantity * coalesce(p.close_price, h.avg_buy_price)
+          ) order by (h.quantity * coalesce(p.close_price, h.avg_buy_price)) desc) as items,
+          sum(h.quantity * coalesce(p.close_price, h.avg_buy_price)) as equity_value,
+          sum(h.quantity * h.avg_buy_price) as cost_basis
+        from public.holdings h
+        join public.stocks s on s.stock_id = h.stock_id
+        left join lateral (
+          select close_price from public.stock_prices
+          where stock_id = h.stock_id and close_price > 0
+          order by recorded_at desc, price_id desc limit 1
+        ) p on true
+        where h.user_id = u.user_id and h.quantity > 0
+      ) h on true
+    ), '[]'::jsonb),
+    'assetExposure', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'symbol', ae.symbol,
+        'company_name', ae.company_name,
+        'sector', ae.sector,
+        'holders', ae.holders,
+        'total_shares', ae.total_shares,
+        'total_value', ae.total_value
+      ) order by ae.total_value desc)
+      from (
+        select
+          s.symbol,
+          s.company_name,
+          coalesce(s.sector, 'Unclassified') as sector,
+          count(distinct h.user_id)::int as holders,
+          sum(h.quantity)::int as total_shares,
+          sum(h.quantity * coalesce(p.close_price, h.avg_buy_price)) as total_value
+        from public.holdings h
+        join public.stocks s on s.stock_id = h.stock_id
+        left join lateral (
+          select close_price from public.stock_prices
+          where stock_id = h.stock_id and close_price > 0
+          order by recorded_at desc, price_id desc limit 1
+        ) p on true
+        where h.quantity > 0
+        group by s.stock_id, s.symbol, s.company_name, s.sector
+      ) ae
+    ), '[]'::jsonb)
+  );
+end;
+$$;
+
+-- I. Reports & Analytics RPC
+create or replace function public.lada_admin_reports(p_range text default '30d')
+returns jsonb
+language plpgsql stable security definer set search_path = ''
+as $$
+declare
+  v_since timestamp with time zone;
+begin
+  if ladastocks_private.current_admin_id() is null then
+    raise insufficient_privilege using message = 'Administrator access required.';
+  end if;
+
+  v_since := case p_range
+    when '7d' then now() - interval '7 days'
+    when '30d' then now() - interval '30 days'
+    when '90d' then now() - interval '90 days'
+    else timestamp with time zone '1970-01-01 00:00:00Z'
+  end;
+
+  return jsonb_build_object(
+    'range', coalesce(p_range, '30d'),
+    'summary', (
+      select jsonb_build_object(
+        'tradeCount', count(*)::int,
+        'buyCount', count(*) filter (where transaction_type = 'buy')::int,
+        'sellCount', count(*) filter (where transaction_type = 'sell')::int,
+        'buyVolume', coalesce(sum(total_amount) filter (where transaction_type = 'buy'), 0),
+        'sellVolume', coalesce(sum(total_amount) filter (where transaction_type = 'sell'), 0),
+        'totalVolume', coalesce(sum(total_amount), 0),
+        'activeTraders', count(distinct user_id)::int,
+        'realizedPnlTotal', coalesce(sum(realized_pnl), 0)
+      )
+      from public.transactions
+      where executed_at >= v_since
+    ),
+    'walletSummary', (
+      select jsonb_build_object(
+        'depositCount', count(*) filter (where transaction_type = 'deposit')::int,
+        'withdrawalCount', count(*) filter (where transaction_type = 'withdrawal')::int,
+        'depositVolume', coalesce(sum(amount) filter (where transaction_type = 'deposit'), 0),
+        'withdrawalVolume', coalesce(sum(amount) filter (where transaction_type = 'withdrawal'), 0)
+      )
+      from public.wallet_transactions
+      where created_at >= v_since
+    ),
+    'dailyVolume', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'day', d.day,
+        'trades', d.trades,
+        'buy_volume', d.buy_volume,
+        'sell_volume', d.sell_volume,
+        'total_volume', d.total_volume
+      ) order by d.day asc)
+      from (
+        select
+          to_char(date_trunc('day', executed_at), 'YYYY-MM-DD') as day,
+          count(*)::int as trades,
+          coalesce(sum(total_amount) filter (where transaction_type = 'buy'), 0) as buy_volume,
+          coalesce(sum(total_amount) filter (where transaction_type = 'sell'), 0) as sell_volume,
+          coalesce(sum(total_amount), 0) as total_volume
+        from public.transactions
+        where executed_at >= v_since
+        group by date_trunc('day', executed_at)
+      ) d
+    ), '[]'::jsonb),
+    'topSymbols', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'symbol', ts.symbol,
+        'company_name', ts.company_name,
+        'trades', ts.trades,
+        'shares', ts.shares,
+        'volume', ts.volume
+      ) order by ts.volume desc)
+      from (
+        select
+          s.symbol,
+          s.company_name,
+          count(*)::int as trades,
+          sum(t.quantity)::int as shares,
+          sum(t.total_amount) as volume
+        from public.transactions t
+        join public.stocks s on s.stock_id = t.stock_id
+        where t.executed_at >= v_since
+        group by s.symbol, s.company_name
+        order by sum(t.total_amount) desc
+        limit 10
+      ) ts
+    ), '[]'::jsonb)
+  );
+end;
+$$;
+
+-- J. Announcements Admin RPCs
+create or replace function public.lada_admin_announcements()
+returns jsonb
+language plpgsql stable security definer set search_path = ''
+as $$
+begin
+  if ladastocks_private.current_admin_id() is null then
+    raise insufficient_privilege using message = 'Administrator access required.';
+  end if;
+
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'announcement_id', a.announcement_id,
+      'title', a.title,
+      'message', a.message,
+      'severity', a.severity,
+      'is_pinned', a.is_pinned,
+      'is_active', a.is_active,
+      'created_at', a.created_at,
+      'updated_at', a.updated_at,
+      'admin_username', coalesce(ad.username, 'Admin')
+    ) order by a.is_pinned desc, a.created_at desc)
+    from public.announcements a
+    left join public.admins ad on ad.admin_id = a.admin_id
+  ), '[]'::jsonb);
+end;
+$$;
+
+create or replace function public.lada_admin_save_announcement(
+  p_announcement_id uuid default null,
+  p_title text default null,
+  p_message text default null,
+  p_severity text default 'info',
+  p_is_pinned boolean default false,
+  p_is_active boolean default true
+)
+returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  actor_id uuid := ladastocks_private.current_admin_id();
+  v_title text := trim(coalesce(p_title, ''));
+  v_message text := trim(coalesce(p_message, ''));
+  v_severity text := coalesce(nullif(trim(p_severity), ''), 'info');
+  v_row public.announcements%rowtype;
+begin
+  if actor_id is null then
+    raise insufficient_privilege using message = 'Administrator access required.';
+  end if;
+  if v_severity not in ('info', 'warning', 'success', 'urgent') then
+    raise sqlstate 'PT400' using message = 'Invalid announcement severity.';
+  end if;
+
+  if p_announcement_id is null then
+    if v_title = '' or v_message = '' then
+      raise sqlstate 'PT400' using message = 'Title and message are required.';
+    end if;
+    insert into public.announcements (admin_id, title, message, severity, is_pinned, is_active)
+    values (actor_id, v_title, v_message, v_severity, coalesce(p_is_pinned, false), coalesce(p_is_active, true))
+    returning * into v_row;
+
+    perform ladastocks_private.write_audit_log(
+      actor_id, 'announcements', 'ANNOUNCEMENT_CREATED', 'announcement', v_row.announcement_id::text,
+      jsonb_build_object('title', v_row.title, 'severity', v_row.severity)
+    );
+  else
+    update public.announcements
+    set title = coalesce(nullif(v_title, ''), title),
+        message = coalesce(nullif(v_message, ''), message),
+        severity = v_severity,
+        is_pinned = coalesce(p_is_pinned, is_pinned),
+        is_active = coalesce(p_is_active, is_active),
+        updated_at = now()
+    where announcement_id = p_announcement_id
+    returning * into v_row;
+
+    if not found then
+      raise sqlstate 'PT404' using message = 'Announcement not found.';
+    end if;
+
+    perform ladastocks_private.write_audit_log(
+      actor_id, 'announcements', 'ANNOUNCEMENT_UPDATED', 'announcement', p_announcement_id::text,
+      jsonb_build_object('title', v_row.title, 'is_active', v_row.is_active, 'is_pinned', v_row.is_pinned)
+    );
+  end if;
+
+  return to_jsonb(v_row);
+end;
+$$;
+
+create or replace function public.lada_admin_delete_announcement(p_announcement_id uuid)
+returns boolean
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  actor_id uuid := ladastocks_private.current_admin_id();
+  v_title text;
+begin
+  if actor_id is null then
+    raise insufficient_privilege using message = 'Administrator access required.';
+  end if;
+
+  delete from public.announcements where announcement_id = p_announcement_id returning title into v_title;
+  if not found then
+    raise sqlstate 'PT404' using message = 'Announcement not found.';
+  end if;
+
+  perform ladastocks_private.write_audit_log(
+    actor_id, 'announcements', 'ANNOUNCEMENT_DELETED', 'announcement', p_announcement_id::text,
+    jsonb_build_object('title', v_title)
+  );
+  return true;
+end;
+$$;
+
+-- K. Audit Log Read & Explicit Log RPCs
+create or replace function public.lada_admin_audit_logs(p_limit int default 200)
+returns jsonb
+language plpgsql stable security definer set search_path = ''
+as $$
+begin
+  if ladastocks_private.current_admin_id() is null then
+    raise insufficient_privilege using message = 'Administrator access required.';
+  end if;
+
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'log_id', l.log_id,
+      'admin_id', l.admin_id,
+      'admin_username', l.admin_username,
+      'category', l.category,
+      'action', l.action,
+      'target_type', l.target_type,
+      'target_id', l.target_id,
+      'details', l.details,
+      'created_at', l.created_at
+    ) order by l.created_at desc)
+    from (select * from public.admin_audit_logs order by created_at desc limit greatest(1, least(p_limit, 1000))) l
+  ), '[]'::jsonb);
+end;
+$$;
+
+create or replace function public.lada_admin_log_audit(
+  p_category text,
+  p_action text,
+  p_target_type text default null,
+  p_target_id text default null,
+  p_details jsonb default '{}'::jsonb
+)
+returns uuid
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  actor_id uuid := ladastocks_private.current_admin_id();
+begin
+  if actor_id is null then
+    raise insufficient_privilege using message = 'Administrator access required.';
+  end if;
+  return ladastocks_private.write_audit_log(
+    actor_id, p_category, p_action, p_target_type, p_target_id, p_details
+  );
+end;
+$$;
+
+-- Lock down and grant execute to authenticated callers (checked inside via current_admin_id())
+revoke all on function public.lada_admin_users() from public, anon, authenticated;
+revoke all on function public.lada_admin_set_status(uuid, text) from public, anon, authenticated;
+revoke all on function public.lada_admin_adjust_wallet(uuid, numeric, uuid, text) from public, anon, authenticated;
+revoke all on function public.lada_admin_update_profile(uuid, text, text, date) from public, anon, authenticated;
+revoke all on function public.lada_admin_overview() from public, anon, authenticated;
+revoke all on function public.lada_admin_stocks() from public, anon, authenticated;
+revoke all on function public.lada_admin_upsert_stock(uuid, text, text, text, text, text) from public, anon, authenticated;
+revoke all on function public.lada_admin_delete_stock(uuid) from public, anon, authenticated;
+revoke all on function public.lada_admin_trades(int) from public, anon, authenticated;
+revoke all on function public.lada_admin_review_trade(uuid, text, text) from public, anon, authenticated;
+revoke all on function public.lada_admin_portfolios() from public, anon, authenticated;
+revoke all on function public.lada_admin_reports(text) from public, anon, authenticated;
+revoke all on function public.lada_admin_announcements() from public, anon, authenticated;
+revoke all on function public.lada_admin_save_announcement(uuid, text, text, text, boolean, boolean) from public, anon, authenticated;
+revoke all on function public.lada_admin_delete_announcement(uuid) from public, anon, authenticated;
+revoke all on function public.lada_admin_audit_logs(int) from public, anon, authenticated;
+revoke all on function public.lada_admin_log_audit(text, text, text, text, jsonb) from public, anon, authenticated;
+
+grant execute on function public.lada_admin_users() to authenticated;
+grant execute on function public.lada_admin_set_status(uuid, text) to authenticated;
+grant execute on function public.lada_admin_adjust_wallet(uuid, numeric, uuid, text) to authenticated;
+grant execute on function public.lada_admin_update_profile(uuid, text, text, date) to authenticated;
+grant execute on function public.lada_admin_overview() to authenticated;
+grant execute on function public.lada_admin_stocks() to authenticated;
+grant execute on function public.lada_admin_upsert_stock(uuid, text, text, text, text, text) to authenticated;
+grant execute on function public.lada_admin_delete_stock(uuid) to authenticated;
+grant execute on function public.lada_admin_trades(int) to authenticated;
+grant execute on function public.lada_admin_review_trade(uuid, text, text) to authenticated;
+grant execute on function public.lada_admin_portfolios() to authenticated;
+grant execute on function public.lada_admin_reports(text) to authenticated;
+grant execute on function public.lada_admin_announcements() to authenticated;
+grant execute on function public.lada_admin_save_announcement(uuid, text, text, text, boolean, boolean) to authenticated;
+grant execute on function public.lada_admin_delete_announcement(uuid) to authenticated;
+grant execute on function public.lada_admin_audit_logs(int) to authenticated;
+grant execute on function public.lada_admin_log_audit(text, text, text, text, jsonb) to authenticated;
+
+commit;
