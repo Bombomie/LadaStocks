@@ -2,124 +2,160 @@
 <html lang="en">
 <head>
   <link rel="apple-touch-icon" sizes="180x180" href="/Images/Favicon/apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="Images/Favicon/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="Images/Favicon/favicon-16x16.png">
-  <link rel="manifest" href="Images/Favicon/site.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="../../Images/Favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="../../Images/Favicon/favicon-16x16.png">
+  <link rel="manifest" href="../../Images/Favicon/site.webmanifest">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LadaStocks - Charts</title>
   <link rel="stylesheet" href="charts.css" />
-  <!-- Import Plotly.js -->
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-  <!-- Reusable navbar component (renders the header, active link,
-       username and session guard). Needs no config. -->
   <script src="../shared/navbar.js" defer></script>
 </head>
 <body>
-  <!-- The old copy-pasted <header> block was replaced by this one line.
-       It renders the navbar and marks "Charts" active automatically. -->
   <lada-navbar></lada-navbar>
 
   <section class="content">
-    <h1>Charts</h1>
+    <h1>Charts &amp; Trading</h1>
     <hr>
-      <div class="main-chart">
-        <h2>Stock Name</h2>
 
-        <div class="chart-toolbar">
-          <div class="search-bar" style="position: relative;">
-            <input type="text" class="search-input" id="stockSearch" placeholder="Search stocks..." autocomplete="off">
-            <button class="search-btn" type="submit">
-              <img src="../../Images/SVG/search.svg" class="search-icon" alt="Search">
-            </button>
+    <div class="main-chart">
+      <h2 id="chartStockTitle">AAPL</h2>
 
-            <!-- Add this dropdown div -->
-            <div id="suggestions" class="suggestions-list"></div>
-          </div>
-
-          <div class="chart-tools">
-            <button class="tool-btn" data-mode="pan" title="Pan">
-              <img src="../../Images/SVG/hand.svg" class="tool-icon" alt="Pan">
-            </button>
-            <button class="tool-btn" data-mode="zoom" title="Zoom">
-              <img src="../../Images/SVG/zoom.svg" class="tool-icon" alt="Zoom">
-            </button>
-            <button class="tool-btn" data-mode="drawline" title="Draw line">
-              <img src="../../Images/SVG/line.svg" class="tool-icon" alt="Draw line">
-            </button>
-            <button class="tool-btn" data-mode="drawrect" title="Draw rectangle">
-              <img src="../../Images/SVG/rectangle.svg" class="tool-icon" alt="Draw rectangle">
-            </button>
-            <button class="tool-btn" data-mode="drawcircle" title="Draw circle">
-              <img src="../../Images/SVG/circle.svg" class="tool-icon" alt="Draw circle">
-            </button>
-            <button class="tool-btn" id="toolAnnotate" title="Add annotation">
-              <img src="../../Images/SVG/annotation.svg" class="tool-icon" alt="Add annotation">
-            </button>
-            <button class="tool-btn" data-mode="eraseshape" title="Erase shape">
-              <img src="../../Images/SVG/erase.svg" class="tool-icon" alt="Erase shape">
-            </button>
-            <button class="tool-btn" id="toolReset" title="Reset view">
-              <img src="../../Images/SVG/reset.svg" class="tool-icon" alt="Reset view">
-            </button>
-          </div>
-
-          <div class="interval-group">
-            <button class="interval-btn" data-interval="1min" data-outputsize="120">1M</button>
-            <button class="interval-btn" data-interval="5min" data-outputsize="120">5M</button>
-            <button class="interval-btn" data-interval="15min" data-outputsize="96">15M</button>
-            <button class="interval-btn" data-interval="1h" data-outputsize="72">1H</button>
-            <button class="interval-btn active" data-interval="1day" data-outputsize="90">1D</button>
-            <button class="interval-btn" data-interval="1week" data-outputsize="52">1W</button>
-          </div>
-
+      <div class="chart-toolbar">
+        <div class="search-bar" style="position: relative;">
+          <input type="text" class="search-input" id="stockSearch" placeholder="Search stocks (e.g. NVDA)..." autocomplete="off">
+          <button class="search-btn" type="button" id="searchSubmitBtn">
+            <img src="../../Images/SVG/search.svg" class="search-icon" alt="Search">
+          </button>
+          <div id="suggestions" class="suggestions-list"></div>
         </div>
 
-        <div class="chart-box" id="candleChart"></div>
-
-        <div class="details-panel" id="detailsPanel">
-          <p class="details-empty">Select a stock to see details.</p>
+        <div class="chart-tools">
+          <button class="tool-btn" data-mode="pan" title="Pan" type="button">
+            <img src="../../Images/SVG/hand.svg" class="tool-icon" alt="Pan">
+          </button>
+          <button class="tool-btn active" data-mode="zoom" title="Zoom" type="button">
+            <img src="../../Images/SVG/zoom.svg" class="tool-icon" alt="Zoom">
+          </button>
+          <button class="tool-btn" data-mode="drawline" title="Draw line" type="button">
+            <img src="../../Images/SVG/line.svg" class="tool-icon" alt="Draw line">
+          </button>
+          <button class="tool-btn" data-mode="drawrect" title="Draw rectangle" type="button">
+            <img src="../../Images/SVG/rectangle.svg" class="tool-icon" alt="Draw rectangle">
+          </button>
+          <button class="tool-btn" data-mode="drawcircle" title="Draw circle" type="button">
+            <img src="../../Images/SVG/circle.svg" class="tool-icon" alt="Draw circle">
+          </button>
+          <button class="tool-btn" id="toolAnnotate" title="Add annotation" type="button">
+            <img src="../../Images/SVG/annotation.svg" class="tool-icon" alt="Add annotation">
+          </button>
+          <button class="tool-btn" data-mode="eraseshape" title="Erase shape" type="button">
+            <img src="../../Images/SVG/erase.svg" class="tool-icon" alt="Erase shape">
+          </button>
+          <button class="tool-btn" id="toolReset" title="Reset view &amp; drawings" type="button">
+            <img src="../../Images/SVG/reset.svg" class="tool-icon" alt="Reset view">
+          </button>
         </div>
 
-                <div class="chart-actions">
-          <!-- Quick actions -->
-          <div class="quick-actions">
-            <button class="btn-watchlist" id="btnWatchlist">+ Watchlist</button>
-            <button class="btn-alert" id="btnAlert">+ Alert</button>
-          </div>
-
-          <!-- Trade panel -->
-          <div class="trade-panel">
-            <div class="trade-stats">
-              <div class="trade-stat">
-                <span class="trade-label">Cash</span>
-                <span class="trade-value" id="tradeCashBalance">$0.00</span>
-              </div>
-              <div class="trade-stat">
-                <span class="trade-label">Position</span>
-                <span class="trade-value" id="tradePosition">0 sh</span>
-              </div>
-            </div>
-
-            <input type="number" id="tradeQuantity" placeholder="Quantity" min="1" step="1" />
-
-            <div class="trade-estimate">
-              <span class="trade-label">Est. Total</span>
-              <span class="trade-value" id="tradeEstTotal">$0.00</span>
-            </div>
-
-            <div class="trade-buttons">
-              <button class="btn-buy" id="btnBuy" type="button">Buy</button>
-              <button class="btn-sell" id="btnSell" type="button">Sell</button>
-            </div>
-
-            <p class="trade-message" id="tradeMessage"></p>
-          </div>
+        <div class="interval-group">
+          <button class="interval-btn" data-interval="1min" data-outputsize="120" type="button">1M</button>
+          <button class="interval-btn" data-interval="5min" data-outputsize="120" type="button">5M</button>
+          <button class="interval-btn" data-interval="15min" data-outputsize="96" type="button">15M</button>
+          <button class="interval-btn" data-interval="1h" data-outputsize="72" type="button">1H</button>
+          <button class="interval-btn active" data-interval="1day" data-outputsize="90" type="button">1D</button>
+          <button class="interval-btn" data-interval="1week" data-outputsize="52" type="button">1W</button>
         </div>
       </div>
+
+      <!-- Inline annotation bar (replaces window.prompt) -->
+      <div id="annotationPopover" class="annotation-popover" hidden>
+        <span id="annotationHint">Click anywhere on the chart to place an annotation.</span>
+        <form id="annotationForm" class="annotation-form" hidden>
+          <input type="text" id="annotationTextInput" placeholder="Enter chart note..." maxlength="80" />
+          <button type="submit" class="btn-save-ann">Place</button>
+          <button type="button" id="cancelAnnBtn" class="btn-cancel-ann">Cancel</button>
+        </form>
+      </div>
+
+      <div class="chart-box" id="candleChart"></div>
+
+      <div class="details-panel" id="detailsPanel">
+        <p class="details-empty">Select a stock to see details.</p>
+      </div>
+
+      <div class="chart-actions">
+        <div class="quick-actions">
+          <button class="btn-watchlist" id="btnWatchlist" type="button">+ Watchlist</button>
+          <button class="btn-alert" id="btnAlert" type="button">Set Target</button>
+        </div>
+
+        <form id="targetAlertForm" class="target-alert-box" hidden>
+          <input type="number" id="targetAlertPrice" placeholder="Target price ($)" min="0.01" step="0.01" />
+          <button type="submit" class="btn-save-ann">Save</button>
+          <button type="button" id="cancelTargetBtn" class="btn-cancel-ann">Cancel</button>
+        </form>
+
+        <div class="trade-panel">
+          <div class="trade-stats">
+            <div class="trade-stat">
+              <span class="trade-label">Cash</span>
+              <span class="trade-value" id="tradeCashBalance">$0.00</span>
+            </div>
+            <div class="trade-stat">
+              <span class="trade-label">Position</span>
+              <span class="trade-value" id="tradePosition">0 sh</span>
+            </div>
+          </div>
+
+          <input type="number" id="tradeQuantity" placeholder="Quantity" min="1" step="1" />
+
+          <div class="trade-estimate">
+            <span class="trade-label">Est. Total</span>
+            <span class="trade-value" id="tradeEstTotal">$0.00</span>
+          </div>
+
+          <div class="trade-buttons">
+            <button class="btn-buy" id="btnBuy" type="button">Buy</button>
+            <button class="btn-sell" id="btnSell" type="button">Sell</button>
+          </div>
+
+          <p class="trade-message" id="tradeMessage"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Buy/Sell Position & Trade History Panel for Active Stock -->
+    <div class="symbol-history-panel">
+      <div class="history-head">
+        <h2>Your Buy &amp; Sell Activity — <span id="historySymbolLabel">AAPL</span></h2>
+        <div class="history-kpis">
+          <div class="hkpi"><span>Shares Owned</span><strong id="histOwned">0</strong></div>
+          <div class="hkpi"><span>Avg Buy Cost</span><strong id="histAvgCost">$0.00</strong></div>
+          <div class="hkpi"><span>Total Bought</span><strong id="histBought">0 sh ($0.00)</strong></div>
+          <div class="hkpi"><span>Total Sold</span><strong id="histSold">0 sh ($0.00)</strong></div>
+          <div class="hkpi"><span>Realized P/L</span><strong id="histRealized">$0.00</strong></div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Date &amp; Time</th>
+              <th>Type</th>
+              <th>Shares</th>
+              <th>Execution Price</th>
+              <th>Total Value</th>
+              <th>Realized P/L</th>
+              <th>Confirmation ID</th>
+            </tr>
+          </thead>
+          <tbody id="symbolHistoryBody"></tbody>
+        </table>
+      </div>
+    </div>
   </section>
 
-  <!-- Link your external JS file here -->
   <script src="charts.js" defer></script>
 </body>
 </html>
