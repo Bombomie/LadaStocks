@@ -1,51 +1,90 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="apple-touch-icon" sizes="180x180" href="/Images/Favicon/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="Images/Favicon/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="Images/Favicon/favicon-16x16.png">
-    <link rel="manifest" href="Images/Favicon/site.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="/Images/Favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="../../Images/Favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="../../Images/Favicon/favicon-16x16.png">
+  <link rel="manifest" href="../../Images/Favicon/site.webmanifest">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LadaStocks</title>
-  <!-- Fixed: filename had a trailing space ("transactions.css ") -->
+  <title>LadaStocks - Transactions</title>
   <link rel="stylesheet" href="transactions.css" />
-  <!-- Reusable navbar component (renders the header, active link,
-       username and session guard). Needs no config. -->
   <script src="../shared/navbar.js" defer></script>
   <script src="transactions.js" defer></script>
 </head>
 <body>
-  <!-- The old copy-pasted <header> block was replaced by this one line.
-       It renders the navbar and marks "Transactions" active automatically. -->
   <lada-navbar></lada-navbar>
 
- <section class="content">
-  <h1>Transactions</h1>
-  <hr>
-    <div class="transactions">
-      <div class="transactions-panel">
-        <h2>Transaction History</h2>
-        <div class="table-wrap">
-          <table class="transactions-table">
-            <thead>
-              <tr>
-                <th>Trade Type</th>
-                <th>Ticker</th>
-                <th>Shares / $ Value</th>
-                <th>Limit Price</th>
-                <th>Current Price</th>
-                <th>Trade Entered</th>
-                <th>Confirmation</th>
-                <th>Description</th>
-              </tr>
-            </thead>
-            <tbody id="transactionsBody"></tbody>
-          </table>
-        </div>
-        <div class="pagination" id="pagination"></div>
+  <section class="content">
+    <div class="page-head">
+      <h1>Transactions</h1>
+      <a class="export-btn" href="/api/exports/transactions">Export CSV</a>
+    </div>
+    <hr>
+
+    <div class="summary-strip">
+      <div class="summary-card">
+        <span class="summary-label">Total Records</span>
+        <span class="summary-value" id="txTotalCount">0</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Total Bought</span>
+        <span class="summary-value" id="txTotalBought">$0.00</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Total Sold</span>
+        <span class="summary-value up" id="txTotalSold">$0.00</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Realized P/L</span>
+        <span class="summary-value" id="txRealizedPnl">$0.00</span>
       </div>
     </div>
+
+    <div class="transactions-panel">
+      <div class="panel-top">
+        <h2>Transaction History</h2>
+        <div class="toolbar">
+          <input type="search" id="txSearch" placeholder="Search symbol or confirmation ID..." />
+          <select id="txTypeFilter">
+            <option value="ALL">All Types</option>
+            <option value="BUY">Buy</option>
+            <option value="SELL">Sell</option>
+            <option value="DEPOSIT">Deposit</option>
+            <option value="WITHDRAWAL">Withdrawal</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="transactions-table">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Ticker</th>
+              <th>Shares / Amount</th>
+              <th>Exec. Price</th>
+              <th>Current Price</th>
+              <th>Realized P/L</th>
+              <th>Trade Entered</th>
+              <th>Confirmation</th>
+              <th>Status / Notes</th>
+            </tr>
+          </thead>
+          <tbody id="transactionsBody"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </div>
   </section>
+
+  <!-- Receipt Modal -->
+  <div class="tx-modal" id="txModal" hidden>
+    <div class="tx-modal-box" role="dialog" aria-modal="true" aria-labelledby="txModalTitle">
+      <h2 id="txModalTitle">Order Receipt</h2>
+      <div id="txModalBody" class="tx-modal-body"></div>
+      <button type="button" id="closeTxModal" class="export-btn" style="width:100%;margin-top:16px;">Close</button>
+    </div>
+  </div>
 </body>
 </html>
