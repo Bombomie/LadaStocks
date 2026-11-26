@@ -1,52 +1,83 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="apple-touch-icon" sizes="180x180" href="/Images/Favicon/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="Images/Favicon/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="Images/Favicon/favicon-16x16.png">
-    <link rel="manifest" href="Images/Favicon/site.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="/Images/Favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="../../Images/Favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="../../Images/Favicon/favicon-16x16.png">
+  <link rel="manifest" href="../../Images/Favicon/site.webmanifest">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LadaStocks</title>
+  <title>LadaStocks - Watchlist</title>
   <link rel="stylesheet" href="watchlist.css" />
-  <!-- Reusable navbar component (renders the header, active link,
-       username and session guard). Needs no config. -->
   <script src="../shared/navbar.js" defer></script>
   <script src="watchlist.js" defer></script>
 </head>
 <body>
-  <!-- The old copy-pasted <header> block was replaced by this one line.
-       It renders the navbar and marks "Watchlist" active automatically. -->
   <lada-navbar></lada-navbar>
 
   <section class="content">
-    <h1>Watchlist</h1>
+    <div class="page-head">
+      <div>
+        <h1>Watchlist</h1>
+        <p class="page-subtitle">Track live quotes, target price alerts, and jump straight to trading.</p>
+      </div>
+      <div class="page-actions">
+        <a class="export-btn" href="/api/exports/watchlist">Export CSV</a>
+      </div>
+    </div>
     <hr>
-    <div class="lower-grid">
 
-            <div class="watchlist-panel">
-        <h2>Stock Watchlists</h2>
+    <div class="summary-strip" id="watchlistSummary">
+      <div class="summary-card">
+        <span class="summary-label">Tracked Stocks</span>
+        <span class="summary-value" id="wlCount">0</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Target Alerts Hit / Met</span>
+        <span class="summary-value up" id="wlAlertsHit">0</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Gainers Today</span>
+        <span class="summary-value up" id="wlGainers">0</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Losers Today</span>
+        <span class="summary-value down" id="wlLosers">0</span>
+      </div>
+    </div>
+
+    <div class="lower-grid">
+      <div class="watchlist-panel">
+        <div class="panel-top">
+          <h2>Stock Watchlist</h2>
+          <div class="filter-pills" id="wlFilterPills">
+            <button type="button" class="filter-pill active" data-filter="all">All</button>
+            <button type="button" class="filter-pill" data-filter="targets">Targets Set</button>
+            <button type="button" class="filter-pill" data-filter="alerts">Alerts Met</button>
+          </div>
+        </div>
 
         <div class="add-stock-bar">
           <div class="search-bar" style="position: relative;">
-            <input type="text" class="search-input" id="stockSearch" placeholder="Add a symbol (e.g. NVDA)" autocomplete="off">
-            <button class="search-btn" id="searchBtn" type="submit">
+            <input type="text" class="search-input" id="stockSearch" placeholder="Add a symbol or company (e.g. NVDA, AAPL)" autocomplete="off">
+            <button class="search-btn" id="searchBtn" type="button" aria-label="Add symbol">
               <img src="../../Images/SVG/search.svg" class="search-icon" alt="Search">
             </button>
             <div id="suggestions" class="suggestions-list"></div>
           </div>
         </div>
 
-                <div class="table-wrap">
+        <div class="table-wrap">
           <table class="watchlist-table">
             <thead>
               <tr>
                 <th>Symbol</th>
                 <th>Company</th>
                 <th>Price</th>
-                <th>Target</th>
-                <th>Change</th>
-                <th></th>
+                <th>Daily</th>
+                <th>Target ($)</th>
+                <th>Target Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="watchlistBody"></tbody>
@@ -55,14 +86,12 @@
       </div>
 
       <div class="details-panel">
-        <h2>Details</h2>
+        <h2>Stock Details</h2>
         <div id="detailsBody" class="details-body">
-          <p class="details-empty">Select a stock from your watchlist to see details.</p>
+          <p class="details-empty">Select a stock from your watchlist to inspect OHLCV market data and target distance.</p>
         </div>
       </div>
-
     </div>
-
   </section>
 </body>
 </html>

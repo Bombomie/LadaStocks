@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="apple-touch-icon" sizes="180x180" href="/Images/Favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="../../Images/Favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="../../Images/Favicon/favicon-16x16.png">
+  <link rel="manifest" href="../../Images/Favicon/site.webmanifest">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LadaStocks - Admin Control Center</title>
+  <link rel="stylesheet" href="/pages/admin/admin.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="/pages/shared/navbar.js" defer></script>
+  <script src="/pages/admin/admin.js" defer></script>
+</head>
+<body>
+  <lada-navbar></lada-navbar>
+
+  <section class="content">
+    <div class="admin-header-row">
+      <div>
+        <h1>Admin Control Center</h1>
+        <p class="admin-subtitle">Monitor users, trades, market feeds, portfolios, reports, and platform notices.</p>
+      </div>
+      <div class="admin-header-actions">
+        <span id="marketBadge" class="status-pill">US Market: Checking...</span>
+        <button id="refreshModuleBtn" class="mini-btn" type="button">Refresh View</button>
+      </div>
+    </div>
+
+    <hr>
+
+    <p class="admin-message" id="adminMessage" hidden role="status"></p>
+
+    <!-- 8-Module Navigation Tabs matching user-side pill style -->
+    <nav class="admin-tabs" id="adminTabs" aria-label="Admin Sections">
+      <button class="tab-btn active" data-tab="overview" type="button">Overview</button>
+      <button class="tab-btn" data-tab="users" type="button">User Management</button>
+      <button class="tab-btn" data-tab="stocks" type="button">Stock Management</button>
+      <button class="tab-btn" data-tab="trades" type="button">Trade Management</button>
+      <button class="tab-btn" data-tab="portfolios" type="button">Portfolio Monitoring</button>
+      <button class="tab-btn" data-tab="market" type="button">Market Data</button>
+      <button class="tab-btn" data-tab="reports" type="button">Reports &amp; Analytics</button>
+      <button class="tab-btn" data-tab="audit" type="button">Audit Logs</button>
+    </nav>
+
+    <!-- ==================== 1. OVERVIEW & ANNOUNCEMENTS ==================== -->
+    <div class="tab-panel active" id="tab-overview">
+      <div class="summary-strip">
+        <div class="summary-card">
+          <span class="summary-label">Total Users (Active / Suspended)</span>
+          <span class="summary-value" id="ovUsers">0 (0 / 0)</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Total Trades / 24h Volume</span>
+          <span class="summary-value" id="ovTrades">0 / $0.00</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Cumulative Trading Volume</span>
+          <span class="summary-value up" id="ovTotalVolume">$0.00</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">System &amp; Market Status</span>
+          <span class="summary-value" id="ovSystemStatus">Operational</span>
+        </div>
+      </div>
+
+      <div class="lower-grid">
+        <div class="watchlist-panel">
+          <div class="panel-head">
+            <h2>Admin Announcements (User Dashboard)</h2>
+            <button class="mini-btn" id="newAnnouncementBtn" type="button">+ New Notice</button>
+          </div>
+          <div id="announcementsList" class="announcements-stack">
+            <p class="muted">Loading announcements...</p>
+          </div>
+
+          <h2 style="margin-top: 26px;">Recent Trades</h2>
+          <div class="table-wrap scrollable">
+            <table class="watchlist-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Type</th>
+                  <th>Ticker</th>
+                  <th>Qty</th>
+                  <th>Total</th>
+                  <th>Status</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody id="ovRecentTradesBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="details-panel">
+          <h2>Platform Snapshot</h2>
+          <div class="detail-grid" id="ovPlatformGrid">
+            <div class="detail-item"><span class="k">Total Cash</span><span class="v" id="ovTotalCash">$0.00</span></div>
+            <div class="detail-item"><span class="k">Holdings Value</span><span class="v" id="ovTotalPortfolio">$0.00</span></div>
+            <div class="detail-item"><span class="k">Active Stocks</span><span class="v" id="ovActiveStocks">0</span></div>
+            <div class="detail-item"><span class="k">Flagged Trades</span><span class="v" id="ovFlaggedTrades">0</span></div>
+          </div>
+
+          <h3 style="margin-top: 18px;">Recent Admin Activity</h3>
+          <div id="ovRecentLogs" class="mini-log-list">
+            <p class="muted">Loading activity...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 2. USER MANAGEMENT ==================== -->
+    <div class="tab-panel" id="tab-users" hidden>
+      <div class="summary-strip" id="adminSummary">
+        <div class="summary-card">
+          <span class="summary-label">Total Users</span>
+          <span class="summary-value" id="totalUsers">0</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Active / Suspended</span>
+          <span class="summary-value" id="statusSplit">0 / 0</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Total Cash Balances</span>
+          <span class="summary-value" id="totalCash">$0.00</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Total Portfolio Value</span>
+          <span class="summary-value up" id="totalPortfolio">$0.00</span>
+        </div>
+      </div>
+
+      <div class="lower-grid">
+        <div class="watchlist-panel">
+          <div class="panel-head">
+            <h2>Users</h2>
+            <a class="mini-btn" href="/api/exports/admin/users">Export CSV</a>
+          </div>
+          <div class="toolbar">
+            <input type="search" id="userSearch" placeholder="Search username or email" />
+            <select id="statusFilter">
+              <option value="all">All statuses</option>
+              <option value="active">Active</option>
+              <option value="suspended">Suspended</option>
+            </select>
+            <select id="sortBy">
+              <option value="username">Sort: Username</option>
+              <option value="balance">Sort: Cash balance</option>
+              <option value="portfolio">Sort: Portfolio value</option>
+              <option value="net">Sort: Net worth</option>
+              <option value="created">Sort: Newest</option>
+            </select>
+          </div>
+          <div class="table-wrap scrollable">
+            <table class="watchlist-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Status</th>
+                  <th>Cash Balance</th>
+                  <th>Portfolio Value</th>
+                  <th>Net Worth</th>
+                  <th>Last Login</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="userBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="details-panel">
+          <h2>User Details &amp; Controls</h2>
+          <div id="userDetails" class="user-details">
+            <p class="muted">Select a user to view wallet, holdings, or update locked email/birthday.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 3. STOCK MANAGEMENT ==================== -->
+    <div class="tab-panel" id="tab-stocks" hidden>
+      <div class="summary-strip">
+        <div class="summary-card">
+          <span class="summary-label">Supported Stocks</span>
+          <span class="summary-value" id="stTotal">0</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Active</span>
+          <span class="summary-value up" id="stActive">0</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Halted / Disabled</span>
+          <span class="summary-value down" id="stHalted">0</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Platform Volume</span>
+          <span class="summary-value" id="stVolume">$0.00</span>
+        </div>
+      </div>
+
+      <div class="lower-grid">
+        <div class="watchlist-panel">
+          <div class="panel-head">
+            <h2>Supported Stocks</h2>
+            <div class="row-actions">
+              <button class="mini-btn" id="addStockBtn" type="button">+ Add Stock</button>
+              <a class="mini-btn" href="/api/exports/admin/stocks">Export CSV</a>
+            </div>
+          </div>
+          <div class="toolbar">
+            <input type="search" id="stockFilterSearch" placeholder="Filter symbol, company, or sector" />
+            <select id="stockStatusFilter">
+              <option value="all">All statuses</option>
+              <option value="active">Active</option>
+              <option value="halted">Halted</option>
+              <option value="disabled">Disabled</option>
+            </select>
+          </div>
+          <div class="table-wrap scrollable">
+            <table class="watchlist-table">
+              <thead>
+                <tr>
+                  <th>Symbol</th>
+                  <th>Company</th>
+                  <th>Sector / Exchange</th>
+                  <th>Status</th>
+                  <th>Holders</th>
+                  <th>Shares Held</th>
+                  <th>Trade Vol.</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="stocksBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="details-panel">
+          <h2 id="stockFormTitle">Add / Edit Stock</h2>
+          <form id="stockForm" class="admin-form">
+            <input type="hidden" id="editStockId" />
+            <label>Ticker Symbol
+              <input type="text" id="stockSymbolInput" placeholder="e.g. NVDA" required maxlength="12" />
+            </label>
+            <label>Company Name
+              <input type="text" id="stockNameInput" placeholder="e.g. NVIDIA Corporation" required maxlength="100" />
+            </label>
+            <label>Exchange
+              <input type="text" id="stockExchangeInput" placeholder="e.g. NASDAQ" maxlength="32" />
+            </label>
+            <label>Sector
+              <input type="text" id="stockSectorInput" placeholder="e.g. Technology" maxlength="64" />
+            </label>
+            <label>Trading Status
+              <select id="stockStatusInput">
+                <option value="active">Active (Tradable)</option>
+                <option value="halted">Halted (Paused)</option>
+                <option value="disabled">Disabled</option>
+              </select>
+            </label>
+            <div class="details-actions">
+              <button class="buy-btn" type="submit" id="saveStockBtn">Save Stock</button>
+              <button class="sell-btn" type="button" id="resetStockFormBtn">Clear</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 4. TRADE MANAGEMENT ==================== -->
+    <div class="tab-panel" id="tab-trades" hidden>
+      <div class="summary-strip">
+        <div class="summary-card">
+          <span class="summary-label">Stock Orders</span>
+          <span class="summary-value" id="trTotalCount">0</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Buys / Sells</span>
+          <span class="summary-value" id="trSplit">0 / 0</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Flagged Orders</span>
+          <span class="summary-value down" id="trFlagged">0</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Total Trade Volume</span>
+          <span class="summary-value up" id="trVolume">$0.00</span>
+        </div>
+      </div>
+
+      <div class="lower-grid">
+        <div class="watchlist-panel">
+          <div class="panel-head">
+            <h2>Transactions &amp; Orders</h2>
+            <a class="mini-btn" href="/api/exports/admin/trades">Export CSV</a>
+          </div>
+          <div class="toolbar">
+            <input type="search" id="tradeSearch" placeholder="Search user, ticker, or confirmation ID" />
+            <select id="tradeTypeFilter">
+              <option value="all">All types</option>
+              <option value="buy">Buy</option>
+              <option value="sell">Sell</option>
+            </select>
+            <select id="tradeReviewFilter">
+              <option value="all">All statuses</option>
+              <option value="executed">Executed</option>
+              <option value="approved">Approved</option>
+              <option value="flagged">Flagged</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+          <div class="table-wrap scrollable">
+            <table class="watchlist-table">
+              <thead>
+                <tr>
+                  <th>Confirmation</th>
+                  <th>User</th>
+                  <th>Type</th>
+                  <th>Ticker</th>
+                  <th>Qty</th>
+                  <th>Price</th>
+                  <th>Total</th>
+                  <th>Status</th>
+                  <th>Executed</th>
+                </tr>
+              </thead>
+              <tbody id="tradesBody"></tbody>
+            </table>
+          </div>
+
+          <h2 style="margin-top: 24px;">Recent Wallet Ledger</h2>
+          <div class="table-wrap scrollable" style="max-height: 260px;">
+            <table class="watchlist-table">
+              <thead>
+                <tr>
+                  <th>Ref</th>
+                  <th>User</th>
+                  <th>Type</th>
+                  <th>Amount</th>
+                  <th>Reason</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody id="walletLedgerBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="details-panel">
+          <h2>Trade Review</h2>
+          <div id="tradeDetails" class="user-details">
+            <p class="muted">Select a transaction row to approve, flag, or annotate it.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 5. PORTFOLIO MONITORING ==================== -->
+    <div class="tab-panel" id="tab-portfolios" hidden>
+      <div class="summary-strip">
+        <div class="summary-card">
+          <span class="summary-label">Combined Net Worth</span>
+          <span class="summary-value" id="pfNetWorth">$0.00</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Total Equity Value</span>
+          <span class="summary-value" id="pfEquityValue">$0.00</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Total Cash Held</span>
+          <span class="summary-value" id="pfCashValue">$0.00</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Aggregate Unrealized P/L</span>
+          <span class="summary-value" id="pfUnrealized">$0.00</span>
+        </div>
+      </div>
+
+      <div class="lower-grid">
+        <div class="watchlist-panel">
+          <div class="panel-head">
+            <h2>User Portfolios</h2>
+            <a class="mini-btn" href="/api/exports/admin/portfolios">Export CSV</a>
+          </div>
+          <div class="toolbar">
+            <input type="search" id="portfolioSearch" placeholder="Filter by username or email" />
+          </div>
+          <div class="table-wrap scrollable">
+            <table class="watchlist-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Positions</th>
+                  <th>Cash</th>
+                  <th>Equity Value</th>
+                  <th>Unrealized P/L</th>
+                  <th>Net Worth</th>
+                </tr>
+              </thead>
+              <tbody id="portfoliosBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="details-panel">
+          <h2>Portfolio Breakdown</h2>
+          <div id="portfolioDetails" class="user-details">
+            <p class="muted">Select a user portfolio to inspect position concentration and cost basis.</p>
+          </div>
+
+          <h3 style="margin-top: 22px;">Platform Asset Exposure</h3>
+          <div class="table-wrap">
+            <table class="holdings-table">
+              <thead>
+                <tr><th>Symbol</th><th>Holders</th><th>Shares</th><th>Value</th></tr>
+              </thead>
+              <tbody id="assetExposureBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 6. MARKET DATA MANAGEMENT ==================== -->
+    <div class="tab-panel" id="tab-market" hidden>
+      <div class="summary-strip">
+        <div class="summary-card">
+          <span class="summary-label">Twelve Data Minute Quota</span>
+          <span class="summary-value" id="mdTdMin">0 / 7</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Twelve Data Daily Usage</span>
+          <span class="summary-value" id="mdTdDay">0 / 800</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Finnhub Minute Quota</span>
+          <span class="summary-value" id="mdFhMin">0 / 55</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Cache Entries / Hit Rate</span>
+          <span class="summary-value up" id="mdCacheRate">0 / 0%</span>
+        </div>
+      </div>
+
+      <div class="lower-grid">
+        <div class="watchlist-panel">
+          <div class="panel-head">
+            <h2>Free-Tier API Status &amp; Call Log</h2>
+            <div class="row-actions">
+              <button class="mini-btn ok" id="mdRefreshQuotesBtn" type="button">Refresh Top Quotes</button>
+              <button class="mini-btn danger" id="mdClearCacheBtn" type="button">Clear Cache</button>
+            </div>
+          </div>
+          <div id="mdProviderCards" class="provider-grid"></div>
+
+          <h3 style="margin-top: 20px; color: var(--text-muted);">Recent API Requests</h3>
+          <div class="table-wrap scrollable" style="max-height: 300px;">
+            <table class="watchlist-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Provider</th>
+                  <th>Endpoint</th>
+                  <th>Symbol</th>
+                  <th>Status</th>
+                  <th>Latency</th>
+                </tr>
+              </thead>
+              <tbody id="mdLogsBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="details-panel">
+          <h2>Feed &amp; Cache Controls</h2>
+          <form id="marketConfigForm" class="admin-form">
+            <label>Quote Cache TTL (seconds)
+              <input type="number" id="mdQuoteTtl" min="15" max="3600" value="60" />
+            </label>
+            <label>Candle Cache TTL (seconds)
+              <input type="number" id="mdCandleTtl" min="30" max="7200" value="300" />
+            </label>
+            <label class="checkbox-row">
+              <input type="checkbox" id="mdPauseRefresh" />
+              <span>Pause live external API requests (serve cache only)</span>
+            </label>
+            <button class="buy-btn" type="submit" style="padding:12px;border:none;border-radius:14px;font-weight:700;cursor:pointer;">Save Feed Settings</button>
+          </form>
+
+          <h3 style="margin-top: 20px;">Manual Quote Refresh</h3>
+          <div class="toolbar" style="margin-top:8px;">
+            <input type="text" id="mdRefreshSymbols" placeholder="e.g. AAPL,MSFT,NVDA" />
+            <button class="mini-btn" id="mdRunRefreshBtn" type="button">Fetch</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 7. REPORTS & ANALYTICS ==================== -->
+    <div class="tab-panel" id="tab-reports" hidden>
+      <div class="panel-head" style="margin-top: 20px;">
+        <div class="toolbar" style="margin-bottom:0;">
+          <select id="reportRange">
+            <option value="7d">Last 7 Days</option>
+            <option value="30d" selected>Last 30 Days</option>
+            <option value="90d">Last 90 Days</option>
+            <option value="all">All Time</option>
+          </select>
+        </div>
+        <a class="mini-btn" id="exportReportCsvBtn" href="/api/exports/admin/report?range=30d">Download Report CSV</a>
+      </div>
+
+      <div class="summary-strip">
+        <div class="summary-card">
+          <span class="summary-label">Total Trading Volume</span>
+          <span class="summary-value up" id="rpVolume">$0.00</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Executed Orders (Buy / Sell)</span>
+          <span class="summary-value" id="rpOrders">0 (0 / 0)</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Active Traders</span>
+          <span class="summary-value" id="rpTraders">0</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Wallet Net Inflow</span>
+          <span class="summary-value" id="rpWalletFlow">$0.00</span>
+        </div>
+      </div>
+
+      <div class="lower-grid">
+        <div class="watchlist-panel">
+          <h2>Daily Trading Volume</h2>
+          <canvas id="adminVolumeChart" height="110"></canvas>
+        </div>
+
+        <div class="details-panel">
+          <h2>Top Traded Tickers</h2>
+          <div class="table-wrap">
+            <table class="holdings-table">
+              <thead>
+                <tr><th>Symbol</th><th>Trades</th><th>Shares</th><th>Volume</th></tr>
+              </thead>
+              <tbody id="rpTopSymbolsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 8. AUDIT LOGS ==================== -->
+    <div class="tab-panel" id="tab-audit" hidden>
+      <div class="watchlist-panel" style="margin-top: 20px;">
+        <div class="panel-head">
+          <h2>Administrator Audit Logs</h2>
+          <a class="mini-btn" href="/api/exports/admin/audit-logs">Export CSV</a>
+        </div>
+        <div class="toolbar">
+          <input type="search" id="auditSearch" placeholder="Search admin, action, target, or metadata" />
+          <select id="auditCategoryFilter">
+            <option value="all">All categories</option>
+            <option value="users">Users</option>
+            <option value="wallet">Wallet</option>
+            <option value="stocks">Stocks</option>
+            <option value="trades">Trades</option>
+            <option value="announcements">Announcements</option>
+            <option value="market_data">Market Data</option>
+            <option value="exports">Exports</option>
+          </select>
+        </div>
+        <div class="table-wrap scrollable" style="max-height: 540px;">
+          <table class="watchlist-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Admin</th>
+                <th>Category</th>
+                <th>Action</th>
+                <th>Target</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody id="auditLogsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Announcement Composer Modal -->
+  <div class="admin-modal" id="announcementModal" hidden>
+    <div class="admin-modal-box" role="dialog" aria-modal="true" aria-labelledby="announcementModalTitle">
+      <h2 id="announcementModalTitle">Publish Announcement</h2>
+      <form id="announcementForm" class="admin-form">
+        <input type="hidden" id="annId" />
+        <label>Title
+          <input type="text" id="annTitle" maxlength="100" required placeholder="e.g. Scheduled Maintenance Notice" />
+        </label>
+        <label>Message
+          <textarea id="annMessage" rows="4" maxlength="600" required placeholder="Write notice for all users..."></textarea>
+        </label>
+        <label>Severity
+          <select id="annSeverity">
+            <option value="info">Info</option>
+            <option value="success">Success / Feature</option>
+            <option value="warning">Warning</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </label>
+        <label class="checkbox-row">
+          <input type="checkbox" id="annPinned" />
+          <span>Pin notice to top of User Dashboard</span>
+        </label>
+        <label class="checkbox-row">
+          <input type="checkbox" id="annActive" checked />
+          <span>Visible to users immediately</span>
+        </label>
+        <div class="details-actions">
+          <button class="buy-btn" type="submit">Save Notice</button>
+          <button class="sell-btn" type="button" id="closeAnnouncementModal">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

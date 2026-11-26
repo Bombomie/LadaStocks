@@ -1,27 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="apple-touch-icon" sizes="180x180" href="/Images/Favicon/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="Images/Favicon/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="Images/Favicon/favicon-16x16.png">
-    <link rel="manifest" href="Images/Favicon/site.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="/Images/Favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="../../Images/Favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="../../Images/Favicon/favicon-16x16.png">
+  <link rel="manifest" href="../../Images/Favicon/site.webmanifest">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LadaStocks</title>
+  <title>LadaStocks - Wallet</title>
   <link rel="stylesheet" href="wallet.css" />
-  <!-- Reusable navbar component (renders the header, active link,
-       username and session guard). Needs no config. -->
   <script src="../shared/navbar.js" defer></script>
-  <script src="../shared/config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="wallet.js" defer></script>
 </head>
 <body>
-  <!-- The old copy-pasted <header> block was replaced by this one line.
-       It renders the navbar and marks "Wallet" active automatically. -->
   <lada-navbar></lada-navbar>
 
   <section class="content">
-    <h1>Wallet</h1>
+    <div class="page-head">
+      <div>
+        <h1>Wallet</h1>
+        <p class="page-subtitle">Manage simulated cash funds, monitor cash balance history, and export your ledger.</p>
+      </div>
+      <div class="page-actions">
+        <a class="export-btn" href="/api/exports/transactions">Export Ledger CSV</a>
+      </div>
+    </div>
     <hr>
 
     <div class="summary-strip" id="walletSummary">
@@ -34,25 +38,41 @@
         <span class="summary-value" id="portfolioValue">$0.00</span>
       </div>
       <div class="summary-card">
-        <span class="summary-label">Total Earning (Sells)</span>
+        <span class="summary-label">Total Earned (Sells)</span>
         <span class="summary-value up" id="totalEarning">$0.00</span>
       </div>
       <div class="summary-card">
-        <span class="summary-label">Total Spending (Buys)</span>
+        <span class="summary-label">Total Spent (Buys)</span>
         <span class="summary-value down" id="totalSpending">$0.00</span>
       </div>
     </div>
 
+    <div class="chart-panel">
+      <div class="panel-top">
+        <h2>Cash Balance History</h2>
+        <span class="muted-note" id="startingBalanceLabel">Starting Balance: $100,000.00</span>
+      </div>
+      <canvas id="walletHistoryChart" height="80"></canvas>
+    </div>
+
     <div class="lower-grid">
       <div class="watchlist-panel">
-        <h2>Recent Activity</h2>
+        <div class="panel-top">
+          <h2>Recent Activity</h2>
+          <select id="activityFilter" class="filter-select">
+            <option value="all">All Activity</option>
+            <option value="wallet">Deposits &amp; Withdrawals</option>
+            <option value="trade">Stock Trades</option>
+          </select>
+        </div>
         <div class="table-wrap scrollable">
           <table class="watchlist-table">
             <thead>
               <tr>
                 <th>Type</th>
-                <th>Symbol</th>
+                <th>Symbol / Source</th>
                 <th>Amount</th>
+                <th>Confirmation</th>
                 <th>Date</th>
               </tr>
             </thead>
@@ -63,8 +83,16 @@
 
       <div class="details-panel">
         <h2>Manage Funds</h2>
+        <p class="muted-note" style="margin-bottom:12px;">Simulated paper-trading deposits and withdrawals take effect immediately.</p>
+        <div class="preset-row" id="presetButtons">
+          <button type="button" class="preset-btn" data-amt="500">+$500</button>
+          <button type="button" class="preset-btn" data-amt="1000">+$1,000</button>
+          <button type="button" class="preset-btn" data-amt="5000">+$5,000</button>
+          <button type="button" class="preset-btn" data-amt="10000">+$10,000</button>
+        </div>
         <div class="wallet-actions">
-          <input type="number" id="fundAmount" placeholder="Amount" min="0" step="0.01" />
+          <input type="number" id="fundAmount" placeholder="Enter USD amount" min="0.01" step="0.01" />
+          <div id="walletMessage" class="wallet-message" role="status"></div>
           <div class="details-actions">
             <button class="buy-btn" id="depositBtn" type="button">Deposit</button>
             <button class="sell-btn" id="withdrawBtn" type="button">Withdraw</button>

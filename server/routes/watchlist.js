@@ -8,11 +8,11 @@ const router = express.Router();
 async function findOrCreateStock(supabase, symbol) {
   let { data: stock, error: sError } = await supabase
     .from('stocks')
-    .select('stock_id, company_name, exchange')
+    .select('stock_id, company_name, exchange, sector, status')
     .eq('symbol', symbol)
-    .single();
+    .maybeSingle();
 
-  if (sError && sError.code !== 'PGRST116') throw sError;
+  if (sError) throw sError;
 
   if (!stock) {
     const quote = await getRealTimeQuote(symbol);
@@ -22,8 +22,9 @@ async function findOrCreateStock(supabase, symbol) {
         symbol,
         company_name: quote?.name || symbol,
         exchange: quote?.exchange || null,
+        status: 'active',
       })
-      .select('stock_id, company_name, exchange')
+      .select('stock_id, company_name, exchange, sector, status')
       .single();
     if (insertErr) throw insertErr;
     stock = newStock;
@@ -42,7 +43,7 @@ router.get('/', requireAuth, async (req, res) => {
         watchlist_id,
         added_at,
         target_price,
-        stocks (stock_id, symbol, company_name, exchange)
+        stocks (stock_id, symbol, company_name, exchange, sector, status)
       `)
       .eq('user_id', user.id)
       .order('added_at', { ascending: true });
@@ -66,7 +67,7 @@ router.get('/with-quotes', requireAuth, async (req, res) => {
         watchlist_id,
         added_at,
         target_price,
-        stocks (stock_id, symbol, company_name, exchange)
+        stocks (stock_id, symbol, company_name, exchange, sector, status)
       `)
       .eq('user_id', user.id)
       .order('added_at', { ascending: true });
@@ -74,48 +75,62 @@ router.get('/with-quotes', requireAuth, async (req, res) => {
     if (error) throw error;
     if (!data || !data.length) return res.json([]);
 
-    const quotePromises = data.map(item =>
-      getRealTimeQuote(item.stocks.symbol)
-        .then(quote => ({ symbol: item.stocks.symbol, quote }))
-        .catch(() => ({ symbol: item.stocks.symbol, quote: null }))
+    const quotes = await Promise.all(
+      data.map((item) =>
+        getRealTimeQuote(item.stocks.symbol)
+          .then((quote) => ({ symbol: item.stocks.symbol, quote }))
+          .catch(() => ({ symbol: item.stocks.symbol, quote: null }))
+      )
     );
-    const quotes = await Promise.all(quotePromises);
-    const quoteMap = new Map(quotes.map(q => [q.symbol, q.quote]));
+    const quoteMap = new Map(quotes.map((q) => [q.symbol, q.quote]));
 
-    const result = data.map(item => {
-      const q = quoteMap.get(item.stocks.symbol);
-
-      // Use the field names returned by your getRealTimeQuote function
-      // (matching the structure used in charts.js)
+    const result = data.map((item) => {
+      const sym = item.stocks.symbol;
+      const q = quoteMap.get(sym);
       const currentPrice = parseFloat(q?.currentPrice || q?.close || q?.price || 0);
       const targetPrice = item.target_price ? parseFloat(item.target_price) : null;
+      const dailyChangePct = parseFloat(q?.change || q?.percent_change || 0);
 
-      // Calculate change based on target price if set, otherwise daily change
       let changePct;
       let changeType;
+      let targetDeltaPct = null;
+      let targetStatus = 'unset';
+
       if (targetPrice && targetPrice > 0) {
-        changePct = ((currentPrice - targetPrice) / targetPrice) * 100;
+        targetDeltaPct = currentPrice > 0 ? ((currentPrice - targetPrice) / targetPrice) * 100 : 0;
+        changePct = targetDeltaPct;
         changeType = 'target';
+        if (currentPrice > 0 && Math.abs(targetDeltaPct) <= 0.5) {
+          targetStatus = 'hit';
+        } else if (currentPrice >= targetPrice) {
+          targetStatus = 'above';
+        } else {
+          targetStatus = 'below';
+        }
       } else {
-        changePct = parseFloat(q?.change || q?.percent_change || 0);
+        changePct = dailyChangePct;
         changeType = 'daily';
       }
 
       return {
         watchlist_id: item.watchlist_id,
         added_at: item.added_at,
-        symbol: item.stocks.symbol,
-        company: item.stocks.company_name || item.stocks.symbol,
+        symbol: sym,
+        company: item.stocks.company_name || sym,
         exchange: item.stocks.exchange,
+        sector: item.stocks.sector || 'Unclassified',
+        status: item.stocks.status || 'active',
         price: currentPrice,
         target_price: targetPrice,
         changePct,
         changeType,
-        dailyChangePct: parseFloat(q?.change || q?.percent_change || 0),
-        open: parseFloat(q?.open || q?.openPrice || 0),
+        targetDeltaPct,
+        targetStatus,
+        dailyChangePct,
+        open: parseFloat(q?.open || 0),
         high: parseFloat(q?.highOfDay || q?.high || 0),
         low: parseFloat(q?.lowOfDay || q?.low || 0),
-        volume: (q?.volume || q?.volumes) ? Number(q?.volume || q?.volumes).toLocaleString('en-US') : '—',
+        volume: q?.volume ? Number(q.volume).toLocaleString('en-US') : '—',
       };
     });
 
@@ -168,13 +183,11 @@ router.post('/', requireAuth, async (req, res) => {
 });
 
 // PATCH /api/watchlist/:symbol
-// Update the target price for a watchlist item
 router.patch('/:symbol', requireAuth, async (req, res) => {
   try {
-    const { symbol } = req.params;
+    const symbol = String(req.params.symbol || '').toUpperCase().trim();
     const targetPrice = req.body.target_price;
 
-    // Allow null (to clear the target price) or a positive number
     if (targetPrice !== null && (isNaN(parseFloat(targetPrice)) || parseFloat(targetPrice) <= 0)) {
       return res.status(400).json({ message: 'Target price must be a positive number or null.' });
     }
@@ -184,8 +197,8 @@ router.patch('/:symbol', requireAuth, async (req, res) => {
     const { data: stock } = await supabase
       .from('stocks')
       .select('stock_id')
-      .eq('symbol', symbol.toUpperCase())
-      .single();
+      .eq('symbol', symbol)
+      .maybeSingle();
 
     if (!stock) return res.status(404).json({ message: 'Stock not found.' });
 
@@ -214,14 +227,14 @@ router.patch('/:symbol', requireAuth, async (req, res) => {
 // DELETE /api/watchlist/:symbol
 router.delete('/:symbol', requireAuth, async (req, res) => {
   try {
-    const { symbol } = req.params;
+    const symbol = String(req.params.symbol || '').toUpperCase().trim();
     const { supabase, user } = req.auth;
 
     const { data: stock } = await supabase
       .from('stocks')
       .select('stock_id')
-      .eq('symbol', symbol.toUpperCase())
-      .single();
+      .eq('symbol', symbol)
+      .maybeSingle();
 
     if (!stock) return res.status(404).json({ message: 'Stock not found.' });
 

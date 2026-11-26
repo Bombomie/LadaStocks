@@ -1,6 +1,7 @@
 import express from 'express';
 import { createSupabaseClient } from '../config/supabase.js';
 import { requireAuth } from '../middleware/requireAuth.js';
+import { getAccountAccess } from '../utils/accountAccess.js';
 import {
   ACCESS_COOKIE,
   REFRESH_COOKIE,
@@ -73,6 +74,7 @@ router.post('/register', async (req, res) => {
 });
 
 router.post('/login', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   try {
     const email = String(req.body.email || '').trim().toLowerCase();
     const password = String(req.body.password || '');
@@ -92,6 +94,11 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
 
+    const accountAccess = await getAccountAccess(supabase);
+    if (accountAccess.suspended) {
+      clearAuthCookies(res);
+      return res.status(403).json({ message: 'This account is suspended.' });
+    }
     setAuthCookies(res, data.session);
 
     // RLS allows an authenticated user to update their own profile.
@@ -117,6 +124,7 @@ router.post('/login', async (req, res) => {
 
     return res.json({
       message: 'Login successful.',
+      isAdmin: accountAccess.isAdmin,
       user: {
         id: data.user.id,
         email: data.user.email,
@@ -145,7 +153,7 @@ router.get('/me', requireAuth, async (req, res) => {
       .single();
 
     if (error) return res.status(400).json({ error: error.message });
-    return res.json({ user: data });
+    return res.json({ user: data, isAdmin: req.auth.isAdmin });
   } catch (err) {
     console.error('Load profile error:', err.message);
     return res.status(500).json({ error: 'Failed to load profile.' });

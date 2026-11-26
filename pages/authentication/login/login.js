@@ -1,23 +1,15 @@
-// login.js
-// ------------------------------------------------------------
-// FIX: API calls are now SAME-ORIGIN (relative URLs, no host).
-// The Express server serves both this page and the API, so
-// '/api/...' always hits the right server and the auth cookies
-// always belong to the same host as the page.
-//
-// Previously this file called http://localhost:20269 while
-// dashboard.js called https://ladastocks-api-server.onrender.com.
-// Cookies set for localhost are invisible to the Render host,
-// so login said "logged in" and dashboard said "401" — an
-// infinite login <-> dashboard redirect loop.
-// ------------------------------------------------------------
-
 const loginForm = document.getElementById('loginForm');
+
+function redirectAfterLogin(isAdmin) {
+  window.location.replace(isAdmin === true
+    ? '/pages/admin/admin-dashboard.html'
+    : '/pages/dashboard/dashboard.html');
+}
 
 (async function redirectIfLoggedIn() {
   try {
     const res = await fetch('/api/auth/me', { credentials: 'include' });
-    if (res.ok) window.location.href = '../../dashboard/dashboard.html';
+    if (res.ok) redirectAfterLogin((await res.json()).isAdmin);
   } catch { /* stay on login page */ }
 })();
 
@@ -80,9 +72,7 @@ loginForm.addEventListener('submit', async function (event) {
     }
 
     showAlert('Login successful! Redirecting...');
-    setTimeout(() => {
-      window.location.href = '../../dashboard/dashboard.html';
-    }, 700);
+    setTimeout(() => redirectAfterLogin(data.isAdmin), 700);
   } catch (error) {
     console.error('Network error:', error);
     showAlert('Network error. Could not reach the API server.');

@@ -1,10 +1,4 @@
-/* ============================================================
- * user-profile.css — styles for the profile page.
- * Link AFTER user.css. If any rule duplicates something in your
- * user.css, this file (loaded last) wins.
- * ============================================================ */
-
-/* ----- Layout: profile card + modules grid ----- */
+/* user-profile.css — polished responsive layout for My Profile */
 
 .dashboard-top {
   margin-top: calc(var(--header-height, 80px) + 70px);
@@ -12,24 +6,25 @@
   color: #ffffff;
   font-family: 'Jost', 'Lexend Deca', sans-serif;
   display: grid;
-  grid-template-columns: 380px minmax(0, 1fr);
+  grid-template-columns: 400px minmax(0, 1fr);
   gap: 28px;
   align-items: start;
   box-sizing: border-box;
+  max-width: 1320px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .profile-card,
 .module {
-  background: rgba(10, 31, 68, 0.55);
+  background: rgba(10, 31, 68, 0.58);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 20px;
+  border-radius: 22px;
   padding: 28px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
-
-/* ----- FAQ column (right of the profile card) ----- */
 
 .module h2 {
   color: var(--gold, #FFC349);
@@ -38,24 +33,43 @@
 }
 
 .module-hint {
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.92rem;
   margin: 0 0 16px;
-}
-
-/* ----- Profile card ----- */
-
-.user-details {
-  text-align: center;
+  line-height: 1.45;
 }
 
 .member-since {
   color: rgba(255, 255, 255, 0.65);
-  font-size: 0.95rem;
-  margin: 4px 0 0;
+  font-size: 0.92rem;
+  margin: 4px 0 10px;
 }
 
-/* Avatar with camera-button overlay (Cloudinary upload) */
+.role-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.role-pill {
+  font-family: 'Lexend Deca', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 12px;
+  border-radius: 50px;
+  border: 1px solid rgba(255, 195, 73, 0.55);
+  color: var(--gold, #FFC349);
+  background: rgba(255, 195, 73, 0.12);
+}
+
+.role-pill.status-active {
+  border-color: rgba(74, 222, 128, 0.5);
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.12);
+}
 
 .avatar-wrap {
   position: relative;
@@ -83,8 +97,6 @@
   border: 2px solid #0a1f44;
   background: var(--gold, #FFC349);
   color: #0a1f44;
-  font-size: 18px;
-  line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -92,24 +104,14 @@
   transition: transform 0.15s ease, background-color 0.2s ease;
 }
 
-.avatar-edit:hover {
-  transform: scale(1.08);
-  background: var(--aqua, #39d0d8);
-}
-
-.avatar-edit:disabled {
-  opacity: 0.6;
-  cursor: wait;
-  transform: none;
-}
-
-/* ----- Profile details ----- */
+.avatar-edit:hover { transform: scale(1.08); background: var(--aqua, #39d0d8); }
+.avatar-edit:disabled { opacity: 0.6; cursor: wait; transform: none; }
 
 .profile-info {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin: 20px 0 8px;
+  margin: 16px 0;
   text-align: left;
 }
 
@@ -126,7 +128,7 @@
 .info-label {
   font-weight: 600;
   color: rgba(255, 255, 255, 0.65);
-  min-width: 92px;
+  min-width: 84px;
 }
 
 .info-value {
@@ -139,7 +141,7 @@
 .info-badge {
   margin-left: auto;
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.04em;
   padding: 3px 10px;
@@ -147,39 +149,44 @@
   text-transform: uppercase;
 }
 
-.info-badge.locked {
-  border: 1px solid rgba(248, 113, 113, 0.6);
-  color: #f87171;
+.info-badge.locked { border: 1px solid rgba(248, 113, 113, 0.6); color: #f87171; }
+.info-badge.editable { border: 1px solid var(--gold, #FFC349); color: var(--gold, #FFC349); }
+
+.account-snapshot {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 14px 0 8px;
 }
 
-.info-badge.editable {
-  border: 1px solid var(--gold, #FFC349);
-  color: var(--gold, #FFC349);
+.account-snapshot > div {
+  background: linear-gradient(160deg, rgba(255, 195, 73, 0.14), rgba(10, 31, 68, 0.72));
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 10px 12px;
+  text-align: left;
 }
 
-/* ----- Inline status messages ----- */
-
-.action-msg {
-  min-height: 1.2em;
-  margin: 8px 0;
-  font-weight: 600;
-  font-size: 0.92rem;
+.account-snapshot span {
+  display: block;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.68);
 }
 
-.action-msg.success {
-  color: #4ade80;
+.account-snapshot strong {
+  font-family: 'Lexend Deca', sans-serif;
+  font-size: 1.05rem;
+  color: #fff;
 }
 
-.action-msg.error {
-  color: #f87171;
-}
-
-/* ----- Action buttons ----- */
+.action-msg { min-height: 1.2em; margin: 8px 0; font-weight: 600; font-size: 0.92rem; }
+.action-msg.success { color: #4ade80; }
+.action-msg.error { color: #f87171; }
 
 .profile-actions {
   display: flex;
-  gap: 12px;
-  margin-top: 14px;
+  gap: 10px;
+  margin-top: 12px;
   flex-wrap: wrap;
   justify-content: center;
 }
@@ -190,55 +197,29 @@
   font-weight: 700;
   border: none;
   border-radius: 50px;
-  padding: 10px 22px;
+  padding: 10px 20px;
   cursor: pointer;
-  font-size: 0.95rem;
-  transition: background-color 0.2s ease, transform 0.2s ease;
+  font-size: 0.92rem;
+  transition: background-color 0.2s ease, transform 0.15s ease;
 }
 
-.btn-gold:hover {
-  background: var(--aqua, #39d0d8);
-  transform: translateY(-1px);
-}
+.btn-gold:hover { background: var(--aqua, #39d0d8); transform: translateY(-1px); }
 
 .btn-outline {
   background: transparent;
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 50px;
-  padding: 10px 22px;
+  padding: 10px 20px;
   cursor: pointer;
   font-weight: 600;
-  font-size: 0.95rem;
-  transition: border-color 0.2s ease, color 0.2s ease;
-}
-
-.btn-outline:hover {
-  border-color: #f87171;
-  color: #f87171;
-}
-
-/* ----- Forms (edit modal) ----- */
-
-.module form,
-.modal-box form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-}
-
-.module label,
-.modal-box label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
   font-size: 0.92rem;
-  text-align: left;
 }
 
-.module input,
+.btn-outline:hover { border-color: #f87171; color: #f87171; }
+
+.modal-box form { display: flex; flex-direction: column; gap: 0.9rem; }
+.modal-box label { display: flex; flex-direction: column; gap: 0.3rem; font-weight: 600; color: rgba(255, 255, 255, 0.85); font-size: 0.92rem; text-align: left; }
 .modal-box input {
   color: #0a1f44;
   padding: 10px 12px;
@@ -249,29 +230,8 @@
   width: 100%;
   box-sizing: border-box;
 }
-
-.module input:focus,
-.modal-box input:focus {
-  outline: none;
-  border-color: var(--gold, #FFC349);
-  box-shadow: 0 0 5px var(--gold, #FFC349);
-}
-
-.module input:disabled,
-.modal-box input:disabled {
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.55);
-  border-color: rgba(255, 255, 255, 0.25);
-  cursor: not-allowed;
-}
-
-.module button[type="submit"],
-.modal-box button[type="submit"] {
-  margin-top: 0.4rem;
-  width: 100%;
-}
-
-/* ----- FAQ module ----- */
+.modal-box input:focus { outline: none; border-color: var(--gold, #FFC349); box-shadow: 0 0 5px var(--gold, #FFC349); }
+.modal-box button[type="submit"] { margin-top: 0.4rem; width: 100%; }
 
 .faq-item {
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -281,40 +241,11 @@
   overflow: hidden;
 }
 
-.faq-item summary {
-  cursor: pointer;
-  padding: 14px 18px;
-  font-weight: 600;
-  list-style-position: inside;
-  color: #ffffff;
-  transition: color 0.2s ease;
-}
-
-.faq-item summary:hover {
-  color: var(--gold, #FFC349);
-}
-
-.faq-item[open] summary {
-  color: var(--gold, #FFC349);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.faq-item p {
-  margin: 0;
-  padding: 14px 18px;
-  color: rgba(255, 255, 255, 0.85);
-  line-height: 1.55;
-  font-size: 0.95rem;
-}
-
-.faq-item code {
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 6px;
-  padding: 1px 7px;
-  font-size: 0.88em;
-}
-
-/* Administrator contact card */
+.faq-item summary { cursor: pointer; padding: 14px 18px; font-weight: 600; list-style-position: inside; color: #ffffff; }
+.faq-item summary:hover, .faq-item[open] summary { color: var(--gold, #FFC349); }
+.faq-item[open] summary { border-bottom: 1px solid rgba(255, 255, 255, 0.12); }
+.faq-item p { margin: 0; padding: 14px 18px; color: rgba(255, 255, 255, 0.85); line-height: 1.55; font-size: 0.94rem; }
+.faq-item code { background: rgba(255, 255, 255, 0.12); border-radius: 6px; padding: 1px 7px; font-size: 0.88em; }
 
 .admin-card {
   margin-top: 18px;
@@ -325,12 +256,7 @@
   text-align: left;
 }
 
-.admin-title {
-  margin: 0 0 4px;
-  font-weight: 700;
-  color: var(--gold, #FFC349);
-}
-
+.admin-title { margin: 0 0 4px; font-weight: 700; color: var(--gold, #FFC349); }
 .admin-email {
   display: inline-block;
   color: var(--aqua, #39d0d8);
@@ -339,19 +265,8 @@
   border-bottom: 1px dashed currentColor;
   margin-bottom: 10px;
 }
-
-.admin-email:hover {
-  color: var(--gold, #FFC349);
-}
-
-.admin-note {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 0.9rem;
-  line-height: 1.5;
-}
-
-/* ----- Modal ----- */
+.admin-email:hover { color: var(--gold, #FFC349); }
+.admin-note { margin: 0; color: rgba(255, 255, 255, 0.78); font-size: 0.9rem; line-height: 1.5; }
 
 .modal {
   position: fixed;
@@ -359,80 +274,34 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(4, 10, 24, 0.7);
+  background: rgba(4, 10, 24, 0.72);
   backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
   z-index: 2000;
   padding: 20px;
 }
-
-.modal[hidden] {
-  display: none;
-}
-
+.modal[hidden] { display: none; }
 .modal-box {
   width: 100%;
   max-width: 480px;
   max-height: 90vh;
   overflow-y: auto;
-  /* Same card look as the page modules, just fully opaque so the
-     dimmed page behind it can never bleed through. */
   background: rgba(10, 31, 68, 0.97);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 20px;
   padding: 28px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
-
-.modal-box h2 {
-  color: var(--gold, #FFC349);
-  font-size: 1.25rem;
-  margin: 0 0 6px;
-}
-
-/* Divider between the Edit profile and Change password sections,
-   echoing the spacing between the page modules. */
-.modal-section + .modal-section {
-  margin-top: 22px;
-  padding-top: 22px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.modal-hint {
-  color: rgba(255, 255, 255, 0.65);
-  font-size: 0.9rem;
-  line-height: 1.5;
-  margin: 0 0 1.1rem;
-}
-
-.modal-box .action-msg {
-  margin-top: 0.9rem;
-}
-
-.modal-box #closeModal {
-  width: 100%;
-  margin-top: 1.4rem;
-}
-
-/* ----- Responsive ----- */
+.modal-box h2 { color: var(--gold, #FFC349); font-size: 1.25rem; margin: 0 0 6px; }
+.modal-section + .modal-section { margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(255, 255, 255, 0.12); }
+.modal-hint { color: rgba(255, 255, 255, 0.65); font-size: 0.9rem; line-height: 1.5; margin: 0 0 1.1rem; }
+.modal-box #closeModal { width: 100%; margin-top: 1.4rem; }
 
 @media (max-width: 1024px) {
-  .dashboard-top {
-    grid-template-columns: 1fr;
-  }
+  .dashboard-top { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 640px) {
-  .dashboard-top {
-    padding: 0 16px 40px;
-  }
-
-  .profile-card,
-  .module {
-    padding: 20px;
-  }
-
-  .info-label {
-    min-width: 76px;
-  }
+  .dashboard-top { padding: 0 16px 40px; }
+  .profile-card, .module { padding: 20px; }
+  .info-label { min-width: 74px; }
 }

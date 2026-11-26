@@ -1,30 +1,16 @@
-// user.js — profile page logic
-// ------------------------------------------------------------
-// - shows account details (username, email, birth date, member since, avatar)
-// - avatar: uploaded to Cloudinary via a signed request from our server,
-//   then the resulting URL is saved with PATCH /api/auth/me
-// - lets the user edit the username and change the password
-//   (both only inside the "Edit profile" modal)
-// - FAQ module: administrator contact for locked fields (email, birth date)
-// - logs the user out
-//
-// Email and birth date are intentionally NOT editable anywhere: they are
-// displayed with a "Locked" badge and the backend refuses them.
-//
-// All API calls use same-origin relative URLs ('/api/...'), the same
-// convention that fixed the login <-> dashboard redirect loop.
-// ------------------------------------------------------------
+// pages/User/user.js — profile page logic
+// Only username (and Cloudinary avatar) + password can be edited by the user.
+// Email and birth date remain locked and require contacting the administrator.
 
 const LOGIN_PAGE = '../authentication/login/login.html';
 const DEFAULT_AVATAR = '../../Images/profile.png';
-const MAX_AVATAR_BYTES = 2 * 1024 * 1024; // 2 MB
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 const AVATAR_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
 let currentUser = null;
 
-// ----- tiny helpers -------------------------------------------------
-
 const $ = (id) => document.getElementById(id);
+const fmtUSD = (n) => Number(n ?? 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
 function setMsg(el, message, isSuccess = false) {
   if (!el) return;
@@ -52,8 +38,6 @@ async function apiFetch(url, options = {}) {
   return res;
 }
 
-// Ask Cloudinary to serve a square crop for display, e.g.
-// .../upload/w_256,h_256,c_fill,q_auto/v123/lada/avatars/x.jpg
 function sizedAvatar(url) {
   if (typeof url === 'string' && url.includes('/upload/')) {
     return url.replace('/upload/', '/upload/w_256,h_256,c_fill,q_auto/');
@@ -61,13 +45,10 @@ function sizedAvatar(url) {
   return url;
 }
 
-// ----- rendering ----------------------------------------------------
-
 function updateDisplayedName(name) {
   document.querySelector('.username').textContent = name;
   $('profileUsername').textContent = name;
 
-  // Keep the navbar's username in sync too (shadow DOM is open).
   const navbarName = document
     .querySelector('lada-navbar')
     ?.shadowRoot?.querySelector('.username');
@@ -77,13 +58,12 @@ function updateDisplayedName(name) {
 function renderAvatar(avatarUrl) {
   const src = avatarUrl ? sizedAvatar(avatarUrl) : DEFAULT_AVATAR;
   const img = $('avatarImg');
-  img.onerror = () => { // CDN unreachable / bad URL — fall back gracefully
+  img.onerror = () => {
     img.onerror = null;
     img.src = DEFAULT_AVATAR;
   };
   img.src = src;
 
-  // Navbar avatar reflects the same picture (falls back to default on error).
   const navbarAvatar = document
     .querySelector('lada-navbar')
     ?.shadowRoot?.querySelector('.avatar');
@@ -99,6 +79,7 @@ function fillProfile(profile) {
   updateDisplayedName(profile.username || 'User');
   $('profileEmail').textContent = profile.email || '—';
   $('profileBirthDate').textContent = profile.birth_date || '—';
+  $('accountRole').textContent = profile.isAdmin ? 'Administrator' : 'Trader';
   renderAvatar(profile.avatar_url);
 
   if (profile.created_at) {
@@ -111,6 +92,27 @@ function fillProfile(profile) {
   }
 
   $('editUsername').value = profile.username || '';
+
+  const adminMailLink = $('adminMailLink');
+  if (adminMailLink && profile.username) {
+    const subject = encodeURIComponent(`LadaStocks Profile Change Request (${profile.username})`);
+    const body = encodeURIComponent(
+      `Hello Administrator,\n\nI would like to request an update to my locked profile details.\n\nUsername: ${profile.username}\nRegistered Email: ${profile.email || ''}\nRequested Change (Email or Birth Date YYYY-MM-DD): \n\nThank you.`
+    );
+    adminMailLink.href = `mailto:24104152@usc.edu.ph?subject=${subject}&body=${body}`;
+  }
+}
+
+async function loadSnapshot() {
+  try {
+    const res = await apiFetch('/api/portfolio/summary');
+    if (!res.ok) return;
+    const summary = await res.json();
+    $('snapCash').textContent = fmtUSD(summary.cashBalance);
+    $('snapNetWorth').textContent = fmtUSD(summary.totalValue);
+  } catch {
+    // Non-blocking snapshot
+  }
 }
 
 async function loadCurrentUser() {
@@ -119,14 +121,12 @@ async function loadCurrentUser() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Could not load profile.');
     fillProfile(data.user);
+    loadSnapshot();
   } catch (err) {
     if (err.message === 'Session expired') return;
-    // API cold start / network blip: keep placeholder text, do NOT redirect.
     console.warn('Could not load profile:', err.message);
   }
 }
-
-// ----- avatar upload (Cloudinary, signed by our server) -------------
 
 async function uploadAvatar(file) {
   if (!AVATAR_TYPES.includes(file.type)) {
@@ -136,15 +136,12 @@ async function uploadAvatar(file) {
     throw new Error('Image must be 2 MB or smaller.');
   }
 
-  // 1) Server signs the upload (keeps the Cloudinary API secret off the client).
   const signRes = await apiFetch('/api/uploads/sign', { method: 'POST' });
   const sign = await signRes.json();
   if (!signRes.ok) {
     throw new Error(sign.message || sign.error || 'Upload service unavailable.');
   }
 
-  // 2) Upload the file straight to Cloudinary with that signature.
-  //    Send EXACTLY the signed params (timestamp) — nothing extra.
   const form = new FormData();
   form.append('file', file);
   form.append('api_key', sign.apiKey);
@@ -160,7 +157,6 @@ async function uploadAvatar(file) {
     throw new Error(upData.error?.message || 'Upload to Cloudinary failed.');
   }
 
-  // 3) Persist the secure URL on the profile.
   const avatarUrl = upData.secure_url;
   const patchRes = await apiFetch('/api/auth/me', {
     method: 'PATCH',
@@ -192,11 +188,9 @@ function onAvatarChosen() {
     })
     .finally(() => {
       $('avatarBtn').disabled = false;
-      input.value = ''; // allow re-selecting the same file
+      input.value = '';
     });
 }
-
-// ----- edit profile modal (username + password) ---------------------
 
 function openEditModal() {
   if (!currentUser) return;
@@ -211,13 +205,11 @@ function closeModal() {
   $('editModal').hidden = true;
 }
 
-// ----- wiring -------------------------------------------------------
-
 $('avatarBtn').addEventListener('click', () => $('avatarInput').click());
 $('avatarInput').addEventListener('change', onAvatarChosen);
-
 $('editProfileBtn').addEventListener('click', openEditModal);
 $('closeModal').addEventListener('click', closeModal);
+
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeModal();
 });
@@ -232,7 +224,7 @@ $('profileForm').addEventListener('submit', async (e) => {
   if (!username) return setMsg(modalMsg, 'Username cannot be empty.');
 
   try {
-    // Only the username is sent — email and birth date are locked.
+    // Only username is sent — email and birth date remain strictly locked.
     const res = await apiFetch('/api/auth/me', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -244,7 +236,7 @@ $('profileForm').addEventListener('submit', async (e) => {
     currentUser = { ...currentUser, username };
     updateDisplayedName(username);
     $('editUsername').value = username;
-    setMsg(modalMsg, 'Profile updated!', true);
+    setMsg(modalMsg, 'Username updated!', true);
   } catch (err) {
     if (err.message !== 'Session expired') setMsg(modalMsg, 'Network error.');
   }
@@ -269,11 +261,7 @@ $('passwordForm').addEventListener('submit', async (e) => {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      // Backend returns 400 (not 401) when the current password is wrong.
-      return setMsg(
-        passwordMsg,
-        data.error || data.message || 'Could not change password.'
-      );
+      return setMsg(passwordMsg, data.error || data.message || 'Could not change password.');
     }
 
     $('currentPassword').value = '';
@@ -289,7 +277,7 @@ $('logoutBtn').addEventListener('click', async () => {
   try {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
   } catch {
-    // Server unreachable — clear the session locally anyway.
+    // Clear locally regardless
   }
   window.location.href = LOGIN_PAGE;
 });

@@ -153,7 +153,7 @@ const STYLES = `
     display: block;
   }
 
-  @media (max-width: 960px) {
+  @media (max-width: 1100px) {
     header {
       gap: 16px;
       padding: 10px 16px;
@@ -282,7 +282,7 @@ ${linksHtml}
         headers: { Accept: 'application/json' },
       });
 
-      if (response.status === 401) {
+      if (response.status === 401 || response.status === 403) {
         window.location.replace(LOGIN_URL);
         return;
       }
@@ -293,6 +293,16 @@ ${linksHtml}
       }
 
       usernameEl.textContent = data.user.username || 'User';
+
+      if (data.isAdmin === true) {
+        const item = document.createElement('li');
+        const link = document.createElement('a');
+        link.href = '/pages/admin/admin-dashboard.html';
+        link.textContent = 'Admin';
+        item.append(link);
+        root.querySelector('.nav-links').append(item);
+        this.highlightActiveLink(root);
+      }
 
       // Reflect the user's Cloudinary avatar (if one has been uploaded).
       if (data.user.avatar_url) {

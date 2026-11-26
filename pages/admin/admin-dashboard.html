@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="apple-touch-icon" sizes="180x180" href="/Images/Favicon/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="../../Images/Favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../../Images/Favicon/favicon-16x16.png">
+    <link rel="manifest" href="../../Images/Favicon/site.webmanifest">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LadaStocks - Admin</title>
+  <link rel="stylesheet" href="admin.css" />
+  <!-- Reusable navbar component (renders the header, active link, username). -->
+  <script src="../shared/navbar.js" defer></script>
+  <script src="admin.js" defer></script>
+</head>
+<body>
+  <lada-navbar></lada-navbar>
+
+  <section class="content">
+    <h1>Admin Dashboard</h1>
+    <hr>
+
+    <p class="mock-banner" id="mockBanner">Preview mode: showing placeholder data (no backend endpoint wired yet).</p>
+
+    <div class="summary-strip" id="adminSummary">
+      <div class="summary-card">
+        <span class="summary-label">Total Users</span>
+        <span class="summary-value" id="totalUsers">0</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Active / Suspended</span>
+        <span class="summary-value" id="statusSplit">0 / 0</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Total Cash Balances</span>
+        <span class="summary-value" id="totalCash">$0.00</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Total Portfolio Value</span>
+        <span class="summary-value up" id="totalPortfolio">$0.00</span>
+      </div>
+    </div>
+
+    <div class="lower-grid">
+      <div class="watchlist-panel">
+        <h2>Users</h2>
+        <div class="toolbar">
+          <input type="search" id="userSearch" placeholder="Search username or email" />
+          <select id="statusFilter">
+            <option value="all">All statuses</option>
+            <option value="active">Active</option>
+            <option value="suspended">Suspended</option>
+          </select>
+          <select id="sortBy">
+            <option value="username">Sort: Username</option>
+            <option value="balance">Sort: Cash balance</option>
+            <option value="portfolio">Sort: Portfolio value</option>
+            <option value="net">Sort: Net worth</option>
+            <option value="created">Sort: Newest</option>
+          </select>
+        </div>
+        <div class="table-wrap scrollable">
+          <table class="watchlist-table">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Status</th>
+                <th>Cash Balance</th>
+                <th>Portfolio Value</th>
+                <th>Net Worth</th>
+                <th>Last Login</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="userBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="details-panel">
+        <h2>User Details</h2>
+        <div id="userDetails" class="user-details">
+          <p class="muted">Select a user to see wallet and holdings details.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</body>
+</html>
